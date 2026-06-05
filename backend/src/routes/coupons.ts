@@ -1,6 +1,7 @@
 import express from 'express';
 import getDb from '../db';
 import dayjs from 'dayjs';
+import { requireHq } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.get('/:id', (req, res) => {
   res.json({ code: 0, data: coupon });
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireHq, (req, res) => {
   const db = getDb();
   const { name, type, value, min_amount = 0, total_quantity, start_date, end_date, description } = req.body;
   
@@ -59,7 +60,7 @@ router.post('/', (req, res) => {
   res.json({ code: 0, data: { id: info.lastInsertRowid } });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireHq, (req, res) => {
   const db = getDb();
   const { name, type, value, min_amount, total_quantity, start_date, end_date, description } = req.body;
   
@@ -84,7 +85,7 @@ router.put('/:id', (req, res) => {
   res.json({ code: 0, message: '更新成功' });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireHq, (req, res) => {
   const db = getDb();
   const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
   if (!coupon) {
@@ -97,7 +98,7 @@ router.delete('/:id', (req, res) => {
   res.json({ code: 0, message: '删除成功' });
 });
 
-router.post('/:id/issue', (req, res) => {
+router.post('/:id/issue', requireHq, (req, res) => {
   const db = getDb();
   const { member_id, member_ids } = req.body;
   
@@ -146,7 +147,7 @@ router.post('/:id/issue', (req, res) => {
   }
 });
 
-router.post('/issue-all', (req, res) => {
+router.post('/issue-all', requireHq, (req, res) => {
   const db = getDb();
   const { coupon_id } = req.body;
   
@@ -188,7 +189,11 @@ router.post('/issue-all', (req, res) => {
 
 router.post('/:id/redeem', (req, res) => {
   const db = getDb();
-  const { member_id, store_id, transaction_id } = req.body;
+  const { member_id, store_id } = req.body;
+  
+  if (req.user!.role === 'store' && Number(store_id) !== req.user!.storeId) {
+    return res.json({ code: 1, message: '只能核销本店的优惠券' });
+  }
   
   const memberCoupon = db.prepare(`
     SELECT mc.*, c.name, c.type, c.value, c.min_amount, c.start_date, c.end_date

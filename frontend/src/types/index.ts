@@ -79,7 +79,13 @@ export interface PageResult<T> {
 export type UserRole = 'hq' | 'store';
 
 export interface UserInfo {
+  id: number;
   role: UserRole;
   username: string;
   storeId?: number;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: UserInfo;
 }

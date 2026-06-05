@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
 
 const dbPath = path.join(__dirname, '..', 'data', 'pharmacy.db');
 let db: Database.Database;
@@ -15,6 +16,16 @@ export function initDatabase() {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('hq', 'store')),
+      store_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id)
+    );
+
     CREATE TABLE IF NOT EXISTS stores (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -98,6 +109,16 @@ export function initDatabase() {
     insertCoupon.run('满100减20', '满减', 20, 100, 500, '2026-01-01', '2026-12-31', '全场满100元减20元');
     insertCoupon.run('8折优惠券', '折扣', 0.8, 0, 300, '2026-01-01', '2026-06-30', '全场8折');
     insertCoupon.run('新人专享10元', '立减', 10, 0, 1000, '2026-01-01', '2026-12-31', '新会员注册专享');
+  }
+
+  const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+  if (userCount.count === 0) {
+    const hashPassword = (pwd: string) => bcrypt.hashSync(pwd, 10);
+    const insertUser = db.prepare('INSERT INTO users (username, password_hash, role, store_id) VALUES (?, ?, ?, ?)');
+    insertUser.run('admin', hashPassword('admin123'), 'hq', null);
+    insertUser.run('store1', hashPassword('store123'), 'store', 1);
+    insertUser.run('store2', hashPassword('store123'), 'store', 2);
+    insertUser.run('store3', hashPassword('store123'), 'store', 3);
   }
 
   console.log('数据库初始化完成');

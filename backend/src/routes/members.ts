@@ -1,5 +1,6 @@
 import express from 'express';
 import getDb from '../db';
+import { requireHq } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -42,7 +43,7 @@ router.get('/:id', (req, res) => {
   res.json({ code: 0, data: member });
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireHq, (req, res) => {
   const db = getDb();
   const { name, phone, email, birthday, points = 0, level = '普通会员' } = req.body;
   
@@ -63,7 +64,7 @@ router.post('/', (req, res) => {
   res.json({ code: 0, data: { id: info.lastInsertRowid } });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireHq, (req, res) => {
   const db = getDb();
   const { name, phone, email, birthday, points, level } = req.body;
   
@@ -93,7 +94,7 @@ router.put('/:id', (req, res) => {
   res.json({ code: 0, message: '更新成功' });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireHq, (req, res) => {
   const db = getDb();
   const member = db.prepare('SELECT * FROM members WHERE id = ?').get(req.params.id);
   if (!member) {
@@ -125,16 +126,27 @@ router.get('/:id/transactions', (req, res) => {
   const { page = 1, pageSize = 10 } = req.query;
   const offset = (Number(page) - 1) * Number(pageSize);
   
-  const total = db.prepare('SELECT COUNT(*) as count FROM transactions WHERE member_id = ?').get(req.params.id) as { count: number };
-  const list = db.prepare(`
+  let whereClause = 'WHERE t.member_id = ?';
+  const params: any[] = [req.params.id];
+  
+  if (req.user!.role === 'store') {
+    whereClause += ' AND t.store_id = ?';
+    params.push(req.user!.storeId);
+  }
+  
+  const totalSql = `SELECT COUNT(*) as count FROM transactions t ${whereClause}`;
+  const total = db.prepare(totalSql).get(...params) as { count: number };
+  
+  const listSql = `
     SELECT t.*, s.name as store_name, c.name as coupon_name
     FROM transactions t
     JOIN stores s ON t.store_id = s.id
     LEFT JOIN member_coupons mc ON t.coupon_id = mc.id
     LEFT JOIN coupons c ON mc.coupon_id = c.id
-    WHERE t.member_id = ?
+    ${whereClause}
     ORDER BY t.created_at DESC LIMIT ? OFFSET ?
-  `).all(req.params.id, Number(pageSize), offset);
+  `;
+  const list = db.prepare(listSql).all(...params, Number(pageSize), offset);
   
   res.json({
     code: 0,

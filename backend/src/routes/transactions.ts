@@ -12,11 +12,19 @@ router.get('/', (req, res) => {
   const whereClauses: string[] = [];
   const params: any[] = [];
   
+  if (req.user!.role === 'store') {
+    whereClauses.push('t.store_id = ?');
+    params.push(req.user!.storeId);
+  }
+  
   if (member_id) {
     whereClauses.push('t.member_id = ?');
     params.push(member_id);
   }
   if (store_id) {
+    if (req.user!.role === 'store' && Number(store_id) !== req.user!.storeId) {
+      return res.json({ code: 1, message: '只能查询本店数据' });
+    }
     whereClauses.push('t.store_id = ?');
     params.push(store_id);
   }
@@ -57,6 +65,15 @@ router.get('/', (req, res) => {
 
 router.get('/:id', (req, res) => {
   const db = getDb();
+  
+  let whereClause = 'WHERE t.id = ?';
+  const params: any[] = [req.params.id];
+  
+  if (req.user!.role === 'store') {
+    whereClause += ' AND t.store_id = ?';
+    params.push(req.user!.storeId);
+  }
+  
   const transaction = db.prepare(`
     SELECT t.*, m.name as member_name, m.phone as member_phone,
            s.name as store_name, c.name as coupon_name
@@ -65,11 +82,11 @@ router.get('/:id', (req, res) => {
     JOIN stores s ON t.store_id = s.id
     LEFT JOIN member_coupons mc ON t.coupon_id = mc.id
     LEFT JOIN coupons c ON mc.coupon_id = c.id
-    WHERE t.id = ?
-  `).get(req.params.id);
+    ${whereClause}
+  `).get(...params);
   
   if (!transaction) {
-    return res.json({ code: 1, message: '交易记录不存在' });
+    return res.json({ code: 1, message: '交易记录不存在或无权限查看' });
   }
   
   res.json({ code: 0, data: transaction });
@@ -81,6 +98,10 @@ router.post('/', (req, res) => {
   
   if (!member_id || !store_id || !amount) {
     return res.json({ code: 1, message: '请填写完整信息' });
+  }
+  
+  if (req.user!.role === 'store' && Number(store_id) !== req.user!.storeId) {
+    return res.json({ code: 1, message: '只能为本店创建交易记录' });
   }
   
   const member = db.prepare('SELECT * FROM members WHERE id = ?').get(member_id);

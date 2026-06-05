@@ -1,5 +1,6 @@
 import express from 'express';
 import getDb from '../db';
+import { requireHq } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get('/:id', (req, res) => {
   res.json({ code: 0, data: store });
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireHq, (req, res) => {
   const db = getDb();
   const { name, address } = req.body;
   
@@ -33,7 +34,7 @@ router.post('/', (req, res) => {
   res.json({ code: 0, data: { id: info.lastInsertRowid } });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireHq, (req, res) => {
   const db = getDb();
   const { name, address } = req.body;
   
@@ -50,7 +51,7 @@ router.put('/:id', (req, res) => {
   res.json({ code: 0, message: '更新成功' });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireHq, (req, res) => {
   const db = getDb();
   const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(req.params.id);
   if (!store) {

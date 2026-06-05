@@ -1,12 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, Tabs, Select, message } from 'antd';
 import { UserOutlined, LockOutlined, ShopOutlined, ApartmentOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
-import { UserRole } from '../types';
+import { UserRole, Store } from '../types';
 import { storeApi } from '../services/api';
-import { useEffect } from 'react';
-import { Store } from '../types';
 
 const Login = () => {
   const [role, setRole] = useState<UserRole>('hq');
@@ -16,21 +14,32 @@ const Login = () => {
   const login = useAuthStore((state) => state.login);
 
   useEffect(() => {
-    storeApi.getList().then(setStores);
+    const fetchStores = async () => {
+      try {
+        const data = await storeApi.getList();
+        setStores(data);
+      } catch (e) {
+        console.error('获取门店列表失败', e);
+      }
+    };
+    fetchStores();
   }, []);
 
-  const onFinish = (values: any) => {
+  const onFinish = async (values: any) => {
     setLoading(true);
-    setTimeout(() => {
-      login(role, values.username, values.storeId);
+    try {
+      await login(role, values.username, values.password, values.storeId);
       message.success('登录成功');
-      setLoading(false);
       if (role === 'hq') {
         navigate('/hq');
       } else {
         navigate('/store/search');
       }
-    }, 500);
+    } catch (e: any) {
+      console.error('登录失败', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -120,7 +129,8 @@ const Login = () => {
           </Form>
 
           <div className="text-center text-sm text-gray-400">
-            <p>演示账号：admin / 任意密码</p>
+            <p>总部账号：admin / admin123</p>
+            <p>门店账号：store1/store2/store3 / store123</p>
           </div>
         </Card>
       </div>

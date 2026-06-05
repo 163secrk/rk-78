@@ -1,5 +1,5 @@
 import request from '../utils/request';
-import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult } from '../types';
+import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole } from '../types';
 
 export const memberApi = {
   getList: (params: { page?: number; pageSize?: number; keyword?: string }) =>
@@ -80,4 +80,9 @@ export const transactionApi = {
 export const storeApi = {
   getList: () =>
     request<Store[]>({ url: '/stores', method: 'get' }),
+};
+
+export const authApi = {
+  login: (data: { username: string; password: string; role: UserRole; storeId?: number }) =>
+    request<LoginResponse>({ url: '/login', method: 'post', data }),
 };

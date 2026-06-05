@@ -6,6 +6,19 @@ const instance = axios.create({
   timeout: 10000,
 });
 
+instance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('pharmacy_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 instance.interceptors.response.use(
   (response) => {
     const res = response.data;
@@ -16,7 +29,14 @@ instance.interceptors.response.use(
     return res.data;
   },
   (error) => {
-    message.error(error.message || '网络错误');
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      localStorage.removeItem('pharmacy_token');
+      localStorage.removeItem('pharmacy_user');
+      message.error(error.response.data?.message || '认证失败，请重新登录');
+      window.location.href = '/login';
+    } else {
+      message.error(error.message || '网络错误');
+    }
     return Promise.reject(error);
   }
 );

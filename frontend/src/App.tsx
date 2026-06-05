@@ -15,16 +15,16 @@ import StoreTransactions from './pages/store/Transactions';
 import StoreOrder from './pages/store/Order';
 
 function HqRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuthStore();
-  if (!user || user.role !== 'hq') {
+  const { user, token } = useAuthStore();
+  if (!user || !token || user.role !== 'hq') {
     return <Navigate to="/login" replace />;
   }
   return <HqLayout>{children}</HqLayout>;
 }
 
 function StoreRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuthStore();
-  if (!user || user.role !== 'store') {
+  const { user, token } = useAuthStore();
+  if (!user || !token || user.role !== 'store') {
     return <Navigate to="/login" replace />;
   }
   return <StoreLayout>{children}</StoreLayout>;
