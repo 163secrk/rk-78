@@ -74,7 +74,8 @@ const HqCoupons = () => {
       await couponApi.delete(id);
       message.success('删除成功');
       fetchCoupons();
-    } catch (e) {
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '删除失败');
       console.error(e);
     }
   };
@@ -83,6 +84,20 @@ const HqCoupons = () => {
     try {
       const values = await form.validateFields();
       const [startDate, endDate] = values.dateRange;
+
+      if (values.type === '满减' && values.value > values.min_amount) {
+        message.error('满减金额不能大于最低消费金额');
+        return;
+      }
+      if (values.type === '折扣' && (values.value <= 0 || values.value > 1)) {
+        message.error('折扣值必须在0到1之间');
+        return;
+      }
+      if ((values.type === '满减' || values.type === '立减') && values.value <= 0) {
+        message.error('优惠金额必须大于0');
+        return;
+      }
+
       const data = {
         name: values.name,
         type: values.type,
@@ -104,7 +119,10 @@ const HqCoupons = () => {
 
       setModalVisible(false);
       fetchCoupons();
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.response?.data?.message) {
+        message.error(e.response.data.message);
+      }
       console.error(e);
     }
   };
@@ -123,14 +141,20 @@ const HqCoupons = () => {
       if (issueType === 'all') {
         await couponApi.issueAll(currentCoupon.id);
         message.success('已向所有会员发放优惠券');
+      } else if (issueType === 'single' && selectedMembers.length > 0) {
+        await couponApi.issue(currentCoupon.id, { member_id: selectedMembers[0] });
+        message.success('成功发放优惠券');
       } else if (issueType === 'batch' && selectedMembers.length > 0) {
         await couponApi.issue(currentCoupon.id, { member_ids: selectedMembers });
         message.success(`成功向 ${selectedMembers.length} 位会员发放优惠券`);
+      } else {
+        message.warning('请选择要发放的会员');
+        return;
       }
       setIssueModalVisible(false);
       fetchCoupons();
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '发放失败');
     } finally {
       setSubmitting(false);
     }

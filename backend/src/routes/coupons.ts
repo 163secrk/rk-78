@@ -52,6 +52,16 @@ router.post('/', requireHq, (req, res) => {
     return res.json({ code: 1, message: '请填写完整信息' });
   }
   
+  if (type === '满减' && value > min_amount) {
+    return res.json({ code: 1, message: '满减金额不能大于最低消费金额' });
+  }
+  if (type === '折扣' && (value <= 0 || value > 1)) {
+    return res.json({ code: 1, message: '折扣值必须在0到1之间' });
+  }
+  if ((type === '满减' || type === '立减') && value <= 0) {
+    return res.json({ code: 1, message: '优惠金额必须大于0' });
+  }
+  
   const info = db.prepare(`
     INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -64,9 +74,23 @@ router.put('/:id', requireHq, (req, res) => {
   const db = getDb();
   const { name, type, value, min_amount, total_quantity, start_date, end_date, description } = req.body;
   
-  const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
+  const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id) as any;
   if (!coupon) {
     return res.json({ code: 1, message: '优惠券不存在' });
+  }
+  
+  const finalType = type || coupon.type;
+  const finalValue = value !== undefined ? value : coupon.value;
+  const finalMinAmount = min_amount !== undefined ? min_amount : coupon.min_amount;
+  
+  if (finalType === '满减' && finalValue > finalMinAmount) {
+    return res.json({ code: 1, message: '满减金额不能大于最低消费金额' });
+  }
+  if (finalType === '折扣' && (finalValue <= 0 || finalValue > 1)) {
+    return res.json({ code: 1, message: '折扣值必须在0到1之间' });
+  }
+  if ((finalType === '满减' || finalType === '立减') && finalValue <= 0) {
+    return res.json({ code: 1, message: '优惠金额必须大于0' });
   }
   
   db.prepare(`
@@ -87,9 +111,13 @@ router.put('/:id', requireHq, (req, res) => {
 
 router.delete('/:id', requireHq, (req, res) => {
   const db = getDb();
-  const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
+  const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id) as any;
   if (!coupon) {
     return res.json({ code: 1, message: '优惠券不存在' });
+  }
+  
+  if (coupon.issued_quantity > 0) {
+    return res.json({ code: 1, message: `该优惠券已发放 ${coupon.issued_quantity} 张，不允许删除` });
   }
   
   db.prepare('DELETE FROM member_coupons WHERE coupon_id = ?').run(req.params.id);
