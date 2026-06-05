@@ -5,6 +5,9 @@ export const memberApi = {
   getList: (params: { page?: number; pageSize?: number; keyword?: string }) =>
     request<PageResult<Member>>({ url: '/members', method: 'get', params }),
 
+  getLevelDistribution: () =>
+    request<{ level: string; count: number; percentage: number }[]>({ url: '/members/stats/level-distribution', method: 'get' }),
+
   getDetail: (id: number) =>
     request<Member>({ url: `/members/${id}`, method: 'get' }),
 

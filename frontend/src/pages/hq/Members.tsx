@@ -239,11 +239,19 @@ const HqMembers = () => {
           >
             <Input placeholder="请输入手机号" />
           </Form.Item>
-          <Form.Item name="email" label="邮箱">
+          <Form.Item
+            name="email"
+            label="邮箱"
+            rules={[{ type: 'email', message: '请输入正确的邮箱格式' }]}
+          >
             <Input placeholder="请输入邮箱" />
           </Form.Item>
           <Form.Item name="birthday" label="生日">
-            <DatePicker style={{ width: '100%' }} placeholder="选择生日" />
+            <DatePicker
+              style={{ width: '100%' }}
+              placeholder="选择生日"
+              disabledDate={(current) => current && current > dayjs().endOf('day')}
+            />
           </Form.Item>
           <Form.Item
             name="level"

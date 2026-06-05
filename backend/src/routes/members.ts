@@ -4,6 +4,35 @@ import { requireHq } from '../middleware/auth';
 
 const router = express.Router();
 
+router.get('/stats/level-distribution', (req, res) => {
+  const db = getDb();
+  const distribution = db.prepare(`
+    SELECT level, COUNT(*) as count 
+    FROM members 
+    GROUP BY level 
+    ORDER BY count DESC
+  `).all() as { level: string; count: number }[];
+  
+  const total = distribution.reduce((sum, item) => sum + item.count, 0);
+  
+  const result = distribution.map(item => ({
+    level: item.level,
+    count: item.count,
+    percentage: total > 0 ? Math.round((item.count / total) * 100) : 0
+  }));
+  
+  const levels = ['金卡会员', '银卡会员', '普通会员'];
+  const finalResult = levels.map(level => {
+    const found = result.find(r => r.level === level);
+    return found || { level, count: 0, percentage: 0 };
+  });
+  
+  res.json({
+    code: 0,
+    data: finalResult
+  });
+});
+
 router.get('/', (req, res) => {
   const db = getDb();
   const { page = 1, pageSize = 10, keyword = '' } = req.query;
