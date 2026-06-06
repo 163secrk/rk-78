@@ -10,6 +10,7 @@ import HqMembers from './pages/hq/Members';
 import HqMemberDetail from './pages/hq/MemberDetail';
 import HqCoupons from './pages/hq/Coupons';
 import HqStoreStats from './pages/hq/StoreStats';
+import HqOperationLogs from './pages/hq/OperationLogs';
 import StoreDashboard from './pages/store/Dashboard';
 import StoreSearch from './pages/store/Search';
 import StoreMemberDetail from './pages/store/MemberDetail';
@@ -77,6 +78,14 @@ export default function App() {
             element={
               <HqRoute>
                 <HqStoreStats />
+              </HqRoute>
+            }
+          />
+          <Route
+            path="/hq/logs"
+            element={
+              <HqRoute>
+                <HqOperationLogs />
               </HqRoute>
             }
           />

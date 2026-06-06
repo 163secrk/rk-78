@@ -6,6 +6,7 @@ import {
   BarChartOutlined,
   LogoutOutlined,
   UserOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
@@ -44,6 +45,12 @@ const HqLayout = ({ children }: HqLayoutProps) => {
       icon: <BarChartOutlined />,
       label: '门店统计',
       onClick: () => navigate('/hq/stats'),
+    },
+    {
+      key: '/hq/logs',
+      icon: <FileTextOutlined />,
+      label: '操作日志',
+      onClick: () => navigate('/hq/logs'),
     },
   ];
 

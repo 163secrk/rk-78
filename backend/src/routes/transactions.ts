@@ -3,6 +3,7 @@ import getDb from '../db';
 import dayjs from 'dayjs';
 import { markExpiredCoupons } from '../utils/couponExpiration';
 import { insertPointRecord } from './points';
+import { logOperation } from '../utils/operationLog';
 
 const router = express.Router();
 
@@ -202,6 +203,22 @@ router.post('/', (req, res) => {
   
   try {
     const transactionId = transaction();
+
+    const memberData = member as any;
+    const itemsText = items && items.length > 0
+      ? items.map((item: any) => `${item.name}¥${item.price}`).join(', ')
+      : '无商品明细';
+
+    logOperation({
+      operatorId: req.user!.id,
+      operatorName: req.user!.username,
+      operationType: 'transaction_create',
+      targetType: 'transaction',
+      targetId: Number(transactionId),
+      detail: `创建交易：会员「${memberData.name}」，消费金额 ¥${amount.toFixed(2)}，优惠 ¥${discountAmount.toFixed(2)}，实付 ¥${(amount - discountAmount).toFixed(2)}，获得积分 ${pointsEarned}，商品：${itemsText}`,
+      storeId: Number(store_id),
+    });
+
     res.json({
       code: 0,
       data: {

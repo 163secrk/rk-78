@@ -11,7 +11,9 @@ import couponsRouter from './routes/coupons';
 import transactionsRouter from './routes/transactions';
 import storesRouter from './routes/stores';
 import pointsRouter from './routes/points';
+import operationLogsRouter from './routes/operationLogs';
 import { markExpiredCoupons } from './utils/couponExpiration';
+import { logOperation } from './utils/operationLog';
 
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
@@ -86,9 +88,19 @@ app.use('/api/coupons', authenticateToken, couponsRouter);
 app.use('/api/transactions', authenticateToken, transactionsRouter);
 app.use('/api/stores', authenticateToken, storesRouter);
 app.use('/api/points', authenticateToken, pointsRouter);
+app.use('/api/operation-logs', authenticateToken, operationLogsRouter);
 
 app.post('/api/coupons/expire', authenticateToken, requireHq, (req, res) => {
   const count = markExpiredCoupons();
+
+  logOperation({
+    operatorId: req.user!.id,
+    operatorName: req.user!.username,
+    operationType: 'coupon_expire',
+    targetType: 'coupon',
+    detail: `手动标记 ${count} 张过期优惠券`,
+  });
+
   res.json({ code: 0, message: `已标记 ${count} 张过期优惠券`, data: { count } });
 });
 

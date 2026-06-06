@@ -102,6 +102,20 @@ export function initDatabase() {
       FOREIGN KEY (member_id) REFERENCES members(id),
       FOREIGN KEY (operator_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS operation_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      operator_id INTEGER NOT NULL,
+      operator_name TEXT NOT NULL,
+      operation_type TEXT NOT NULL,
+      target_type TEXT,
+      target_id INTEGER,
+      detail TEXT,
+      store_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (operator_id) REFERENCES users(id),
+      FOREIGN KEY (store_id) REFERENCES stores(id)
+    );
   `);
 
   try {

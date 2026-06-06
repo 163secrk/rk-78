@@ -142,3 +142,42 @@ export interface LoginResponse {
   token: string;
   user: UserInfo;
 }
+
+export type OperationType =
+  | 'member_create'
+  | 'member_update'
+  | 'member_delete'
+  | 'coupon_create'
+  | 'coupon_update'
+  | 'coupon_delete'
+  | 'coupon_issue'
+  | 'coupon_redeem'
+  | 'points_adjust'
+  | 'transaction_create'
+  | 'coupon_issue_all'
+  | 'coupon_expire'
+  | 'birthday_coupon_issue';
+
+export interface OperationLog {
+  id: number;
+  operator_id: number;
+  operator_name: string;
+  operation_type: OperationType;
+  operation_type_label: string;
+  target_type?: string;
+  target_id?: number;
+  detail?: string;
+  store_id?: number;
+  store_name?: string;
+  created_at: string;
+}
+
+export interface OperationTypeOption {
+  value: OperationType;
+  label: string;
+}
+
+export interface OperatorOption {
+  id: number;
+  name: string;
+}

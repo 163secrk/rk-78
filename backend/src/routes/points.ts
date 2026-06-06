@@ -1,6 +1,7 @@
 import express from 'express';
 import getDb from '../db';
 import { requireHq } from '../middleware/auth';
+import { logOperation } from '../utils/operationLog';
 
 const router = express.Router();
 
@@ -110,6 +111,16 @@ router.post('/adjust', requireHq, (req, res) => {
         req.user!.id
       );
     })();
+
+    const memberData = member as any;
+    logOperation({
+      operatorId: req.user!.id,
+      operatorName: req.user!.username,
+      operationType: 'points_adjust',
+      targetType: 'member',
+      targetId: Number(member_id),
+      detail: `调整会员「${memberData.name}」积分：${change > 0 ? '+' : ''}${change}，${remark || '无备注'}，调整前：${result.balance_before}，调整后：${result.balance_after}`,
+    });
 
     res.json({
       code: 0,

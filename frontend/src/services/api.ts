@@ -1,5 +1,5 @@
 import request from '../utils/request';
-import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole, StoreMemberCount, StoreConsumption, BirthdayResponse, PointRecord } from '../types';
+import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole, StoreMemberCount, StoreConsumption, BirthdayResponse, PointRecord, OperationLog, OperationTypeOption, OperatorOption } from '../types';
 
 export const memberApi = {
   getList: (params: { page?: number; pageSize?: number; keyword?: string }) =>
@@ -108,4 +108,22 @@ export const pointsApi = {
 export const authApi = {
   login: (data: { username: string; password: string; role: UserRole; storeId?: number }) =>
     request<LoginResponse>({ url: '/login', method: 'post', data }),
+};
+
+export const operationLogApi = {
+  getList: (params: {
+    page?: number;
+    pageSize?: number;
+    operation_type?: string;
+    operator_id?: number;
+    start_date?: string;
+    end_date?: string;
+    keyword?: string;
+  }) => request<PageResult<OperationLog>>({ url: '/operation-logs', method: 'get', params }),
+
+  getOperationTypes: () =>
+    request<OperationTypeOption[]>({ url: '/operation-logs/operation-types', method: 'get' }),
+
+  getOperators: () =>
+    request<OperatorOption[]>({ url: '/operation-logs/operators', method: 'get' }),
 };

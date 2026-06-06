@@ -3,6 +3,7 @@ import getDb from '../db';
 import dayjs from 'dayjs';
 import { requireHq } from '../middleware/auth';
 import { markExpiredCoupons } from '../utils/couponExpiration';
+import { logOperation } from '../utils/operationLog';
 
 const router = express.Router();
 
@@ -90,6 +91,16 @@ router.get('/birthdays', (req, res) => {
           if (!m.has_birthday_coupon) {
             m.has_birthday_coupon = true;
           }
+        });
+
+        logOperation({
+          operatorId: req.user!.id,
+          operatorName: req.user!.username,
+          operationType: 'birthday_coupon_issue',
+          targetType: 'coupon',
+          targetId: bc.id,
+          detail: `自动向 ${issuedCount} 位生日会员发放生日券：${bc.name}`,
+          storeId: storeId || undefined,
         });
       } catch (err: any) {
         console.error('自动发放生日优惠券失败:', err);
@@ -198,7 +209,16 @@ router.post('/', requireHq, (req, res) => {
     INSERT INTO members (name, phone, email, birthday, points, level)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(name, phone, email, birthday, points, level);
-  
+
+  logOperation({
+    operatorId: req.user!.id,
+    operatorName: req.user!.username,
+    operationType: 'member_create',
+    targetType: 'member',
+    targetId: Number(info.lastInsertRowid),
+    detail: `创建会员：${name}，手机号：${phone}`,
+  });
+
   res.json({ code: 0, data: { id: info.lastInsertRowid } });
 });
 
@@ -228,7 +248,24 @@ router.put('/:id', requireHq, (req, res) => {
       level = COALESCE(?, level)
     WHERE id = ?
   `).run(name, phone, email, birthday, points, level, req.params.id);
-  
+
+  const changes: string[] = [];
+  if (name && name !== (member as any).name) changes.push(`姓名: ${(member as any).name} → ${name}`);
+  if (phone && phone !== (member as any).phone) changes.push(`手机号: ${(member as any).phone} → ${phone}`);
+  if (email !== undefined && email !== (member as any).email) changes.push(`邮箱: ${(member as any).email || '-'} → ${email || '-'}`);
+  if (birthday !== undefined && birthday !== (member as any).birthday) changes.push(`生日: ${(member as any).birthday || '-'} → ${birthday || '-'}`);
+  if (points !== undefined && points !== (member as any).points) changes.push(`积分: ${(member as any).points} → ${points}`);
+  if (level && level !== (member as any).level) changes.push(`等级: ${(member as any).level} → ${level}`);
+
+  logOperation({
+    operatorId: req.user!.id,
+    operatorName: req.user!.username,
+    operationType: 'member_update',
+    targetType: 'member',
+    targetId: Number(req.params.id),
+    detail: `更新会员：${(member as any).name}，修改内容：${changes.join('; ')}`,
+  });
+
   res.json({ code: 0, message: '更新成功' });
 });
 
@@ -242,7 +279,16 @@ router.delete('/:id', requireHq, (req, res) => {
   db.prepare('DELETE FROM member_coupons WHERE member_id = ?').run(req.params.id);
   db.prepare('DELETE FROM transactions WHERE member_id = ?').run(req.params.id);
   db.prepare('DELETE FROM members WHERE id = ?').run(req.params.id);
-  
+
+  logOperation({
+    operatorId: req.user!.id,
+    operatorName: req.user!.username,
+    operationType: 'member_delete',
+    targetType: 'member',
+    targetId: Number(req.params.id),
+    detail: `删除会员：${(member as any).name}，手机号：${(member as any).phone}`,
+  });
+
   res.json({ code: 0, message: '删除成功' });
 });
 

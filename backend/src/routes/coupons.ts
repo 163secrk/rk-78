@@ -3,6 +3,7 @@ import getDb from '../db';
 import dayjs from 'dayjs';
 import { requireHq } from '../middleware/auth';
 import { markExpiredCoupons } from '../utils/couponExpiration';
+import { logOperation } from '../utils/operationLog';
 
 const router = express.Router();
 
@@ -67,7 +68,16 @@ router.post('/', requireHq, (req, res) => {
     INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(name, type, value, min_amount, total_quantity, start_date, end_date, description);
-  
+
+  logOperation({
+    operatorId: req.user!.id,
+    operatorName: req.user!.username,
+    operationType: 'coupon_create',
+    targetType: 'coupon',
+    targetId: Number(info.lastInsertRowid),
+    detail: `创建优惠券：${name}，类型：${type}，面值：${value}，数量：${total_quantity}`,
+  });
+
   res.json({ code: 0, data: { id: info.lastInsertRowid } });
 });
 
@@ -106,7 +116,25 @@ router.put('/:id', requireHq, (req, res) => {
       description = COALESCE(?, description)
     WHERE id = ?
   `).run(name, type, value, min_amount, total_quantity, start_date, end_date, description, req.params.id);
-  
+
+  const changes: string[] = [];
+  if (name && name !== coupon.name) changes.push(`名称: ${coupon.name} → ${name}`);
+  if (type && type !== coupon.type) changes.push(`类型: ${coupon.type} → ${type}`);
+  if (value !== undefined && value !== coupon.value) changes.push(`面值: ${coupon.value} → ${value}`);
+  if (min_amount !== undefined && min_amount !== coupon.min_amount) changes.push(`最低消费: ${coupon.min_amount} → ${min_amount}`);
+  if (total_quantity !== undefined && total_quantity !== coupon.total_quantity) changes.push(`总数量: ${coupon.total_quantity} → ${total_quantity}`);
+  if (start_date && start_date !== coupon.start_date) changes.push(`开始日期: ${coupon.start_date} → ${start_date}`);
+  if (end_date && end_date !== coupon.end_date) changes.push(`结束日期: ${coupon.end_date} → ${end_date}`);
+
+  logOperation({
+    operatorId: req.user!.id,
+    operatorName: req.user!.username,
+    operationType: 'coupon_update',
+    targetType: 'coupon',
+    targetId: Number(req.params.id),
+    detail: `更新优惠券：${coupon.name}，修改内容：${changes.join('; ')}`,
+  });
+
   res.json({ code: 0, message: '更新成功' });
 });
 
@@ -123,7 +151,16 @@ router.delete('/:id', requireHq, (req, res) => {
   
   db.prepare('DELETE FROM member_coupons WHERE coupon_id = ?').run(req.params.id);
   db.prepare('DELETE FROM coupons WHERE id = ?').run(req.params.id);
-  
+
+  logOperation({
+    operatorId: req.user!.id,
+    operatorName: req.user!.username,
+    operationType: 'coupon_delete',
+    targetType: 'coupon',
+    targetId: Number(req.params.id),
+    detail: `删除优惠券：${coupon.name}，类型：${coupon.type}，面值：${coupon.value}`,
+  });
+
   res.json({ code: 0, message: '删除成功' });
 });
 
@@ -170,6 +207,16 @@ router.post('/:id/issue', requireHq, (req, res) => {
   
   try {
     transaction(targetMemberIds.map(Number), Number(req.params.id));
+
+    logOperation({
+      operatorId: req.user!.id,
+      operatorName: req.user!.username,
+      operationType: 'coupon_issue',
+      targetType: 'coupon',
+      targetId: Number(req.params.id),
+      detail: `发放优惠券：${couponData.name}，共 ${targetMemberIds.length} 张`,
+    });
+
     res.json({ code: 0, message: `成功发放 ${targetMemberIds.length} 张优惠券` });
   } catch (err: any) {
     res.json({ code: 1, message: err.message });
@@ -210,6 +257,16 @@ router.post('/issue-all', requireHq, (req, res) => {
   
   try {
     transaction(members, Number(coupon_id));
+
+    logOperation({
+      operatorId: req.user!.id,
+      operatorName: req.user!.username,
+      operationType: 'coupon_issue_all',
+      targetType: 'coupon',
+      targetId: Number(coupon_id),
+      detail: `批量发放优惠券：${couponData.name}，共 ${members.length} 张`,
+    });
+
     res.json({ code: 0, message: `成功向 ${members.length} 位会员发放优惠券` });
   } catch (err: any) {
     res.json({ code: 1, message: err.message });
@@ -264,7 +321,17 @@ router.post('/:id/redeem', (req, res) => {
     SET status = '已使用', used_at = CURRENT_TIMESTAMP, store_id = ?
     WHERE id = ?
   `).run(store_id, req.params.id);
-  
+
+  logOperation({
+    operatorId: req.user!.id,
+    operatorName: req.user!.username,
+    operationType: 'coupon_redeem',
+    targetType: 'member_coupon',
+    targetId: Number(req.params.id),
+    detail: `核销优惠券：${mc.name}，会员ID：${member_id}，门店ID：${store_id}`,
+    storeId: Number(store_id),
+  });
+
   res.json({
     code: 0,
     message: '核销成功',
