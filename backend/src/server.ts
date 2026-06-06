@@ -12,6 +12,7 @@ import transactionsRouter from './routes/transactions';
 import storesRouter from './routes/stores';
 import pointsRouter from './routes/points';
 import operationLogsRouter from './routes/operationLogs';
+import reportsRouter from './routes/reports';
 import { markExpiredCoupons } from './utils/couponExpiration';
 import { logOperation } from './utils/operationLog';
 
@@ -89,6 +90,7 @@ app.use('/api/transactions', authenticateToken, transactionsRouter);
 app.use('/api/stores', authenticateToken, storesRouter);
 app.use('/api/points', authenticateToken, pointsRouter);
 app.use('/api/operation-logs', authenticateToken, operationLogsRouter);
+app.use('/api/reports', authenticateToken, reportsRouter);
 
 app.post('/api/coupons/expire', authenticateToken, requireHq, (req, res) => {
   const count = markExpiredCoupons();

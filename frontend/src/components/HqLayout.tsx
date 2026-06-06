@@ -7,6 +7,7 @@ import {
   LogoutOutlined,
   UserOutlined,
   FileTextOutlined,
+  AreaChartOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
@@ -39,6 +40,12 @@ const HqLayout = ({ children }: HqLayoutProps) => {
       icon: <GiftOutlined />,
       label: '优惠券管理',
       onClick: () => navigate('/hq/coupons'),
+    },
+    {
+      key: '/hq/reports',
+      icon: <AreaChartOutlined />,
+      label: '数据报表',
+      onClick: () => navigate('/hq/reports'),
     },
     {
       key: '/hq/stats',

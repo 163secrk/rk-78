@@ -181,3 +181,52 @@ export interface OperatorOption {
   id: number;
   name: string;
 }
+
+export interface MemberGrowthItem {
+  date: string;
+  new_count: number;
+  cumulative_count: number;
+}
+
+export interface CouponStatItem {
+  coupon_id: number;
+  coupon_name: string;
+  coupon_type: string;
+  coupon_value: number;
+  issued_count: number;
+  redeemed_count: number;
+  expired_count: number;
+  redemption_rate: number;
+}
+
+export interface CouponStatsSummary {
+  total_issued: number;
+  total_redeemed: number;
+  total_expired: number;
+  overall_redemption_rate: number;
+}
+
+export interface CouponStatsResponse {
+  list: CouponStatItem[];
+  summary: CouponStatsSummary;
+}
+
+export interface LevelFunnelItem {
+  level: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ConversionPathItem {
+  from: string;
+  to: string;
+  count: number;
+  rate: number;
+}
+
+export interface LevelFunnelResponse {
+  funnel: LevelFunnelItem[];
+  total_members: number;
+  new_members_in_period: number;
+  conversion_path: ConversionPathItem[];
+}

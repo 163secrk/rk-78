@@ -1,5 +1,5 @@
 import request from '../utils/request';
-import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole, StoreMemberCount, StoreConsumption, BirthdayResponse, PointRecord, OperationLog, OperationTypeOption, OperatorOption } from '../types';
+import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole, StoreMemberCount, StoreConsumption, BirthdayResponse, PointRecord, OperationLog, OperationTypeOption, OperatorOption, MemberGrowthItem, CouponStatsResponse, LevelFunnelResponse } from '../types';
 
 export const memberApi = {
   getList: (params: { page?: number; pageSize?: number; keyword?: string }) =>
@@ -126,4 +126,22 @@ export const operationLogApi = {
 
   getOperators: () =>
     request<OperatorOption[]>({ url: '/operation-logs/operators', method: 'get' }),
+};
+
+export const reportApi = {
+  getMemberGrowth: (params: {
+    start_date?: string;
+    end_date?: string;
+    granularity?: 'day' | 'week' | 'month';
+  }) => request<MemberGrowthItem[]>({ url: '/reports/member-growth', method: 'get', params }),
+
+  getCouponStats: (params: {
+    start_date?: string;
+    end_date?: string;
+  }) => request<CouponStatsResponse>({ url: '/reports/coupon-stats', method: 'get', params }),
+
+  getLevelFunnel: (params: {
+    start_date?: string;
+    end_date?: string;
+  }) => request<LevelFunnelResponse>({ url: '/reports/level-funnel', method: 'get', params }),
 };
