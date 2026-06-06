@@ -45,8 +45,12 @@ router.get('/member/:memberId', (req, res) => {
 
   const whereClauses: string[] = ['pr.member_id = ?'];
   const params: any[] = [memberId];
+  let joinClause = '';
 
   if (req.user!.role === 'store') {
+    joinClause = 'LEFT JOIN transactions t ON pr.source_type = \'transaction\' AND pr.source_id = t.id';
+    whereClauses.push('(pr.source_type = \'transaction\' AND t.store_id = ?)');
+    params.push(req.user!.storeId);
   }
 
   if (type) {
@@ -56,13 +60,14 @@ router.get('/member/:memberId', (req, res) => {
 
   const whereClause = 'WHERE ' + whereClauses.join(' AND ');
 
-  const totalSql = `SELECT COUNT(*) as count FROM point_records pr ${whereClause}`;
+  const totalSql = `SELECT COUNT(*) as count FROM point_records pr ${joinClause} ${whereClause}`;
   const total = db.prepare(totalSql).get(...params) as { count: number };
 
   const listSql = `
     SELECT pr.*, u.username as operator_name
     FROM point_records pr
     LEFT JOIN users u ON pr.operator_id = u.id
+    ${joinClause}
     ${whereClause}
     ORDER BY pr.created_at DESC LIMIT ? OFFSET ?
   `;

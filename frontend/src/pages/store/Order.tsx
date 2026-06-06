@@ -190,13 +190,11 @@ const StoreOrder = () => {
             member_id: member.id,
             store_id: user?.storeId,
             amount: subtotal,
-            items: JSON.stringify(validItems),
-            points_earned: pointsEarned,
+            items: validItems,
           };
 
           if (selectedCoupon) {
-            data.member_coupon_id = selectedCoupon.id;
-            data.discount_amount = discountAmount;
+            data.coupon_id = selectedCoupon.id;
           }
 
           const result = await transactionApi.create(data);
