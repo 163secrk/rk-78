@@ -32,11 +32,16 @@ router.get('/member-growth', (req, res) => {
     ORDER BY date ASC
   `;
 
-  const rawData = db.prepare(sql).all(
-    dateFormat,
+  const params: any[] = [];
+  if (granularity === 'day' || granularity === 'month') {
+    params.push(dateFormat, dateFormat);
+  }
+  params.push(
     startDate.format('YYYY-MM-DD HH:mm:ss'),
     endDate.format('YYYY-MM-DD HH:mm:ss')
-  ) as { date: string; new_count: number }[];
+  );
+
+  const rawData = db.prepare(sql).all(...params) as { date: string; new_count: number }[];
 
   const totalMembersBefore = db.prepare(`
     SELECT COUNT(*) as count FROM members WHERE created_at < ?

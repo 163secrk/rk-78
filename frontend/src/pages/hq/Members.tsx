@@ -250,7 +250,12 @@ const HqMembers = () => {
             <DatePicker
               style={{ width: '100%' }}
               placeholder="选择生日"
-              disabledDate={(current) => current && current > dayjs().endOf('day')}
+              disabledDate={(current) => {
+                if (!current) return false;
+                const minDate = dayjs().subtract(100, 'year').startOf('day');
+                const maxDate = dayjs().endOf('day');
+                return current < minDate || current > maxDate;
+              }}
             />
           </Form.Item>
           <Form.Item
@@ -265,7 +270,7 @@ const HqMembers = () => {
             </Select>
           </Form.Item>
           <Form.Item name="points" label="初始积分" initialValue={0}>
-            <Input type="number" min={0} placeholder="请输入积分" />
+            <Input type="number" min={0} placeholder="请输入积分" disabled={!!editingMember} />
           </Form.Item>
         </Form>
       </Modal>

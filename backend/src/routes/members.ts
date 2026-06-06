@@ -224,7 +224,7 @@ router.post('/', requireHq, (req, res) => {
 
 router.put('/:id', requireHq, (req, res) => {
   const db = getDb();
-  const { name, phone, email, birthday, points, level } = req.body;
+  const { name, phone, email, birthday, level } = req.body;
   
   const member = db.prepare('SELECT * FROM members WHERE id = ?').get(req.params.id);
   if (!member) {
@@ -244,17 +244,15 @@ router.put('/:id', requireHq, (req, res) => {
       phone = COALESCE(?, phone),
       email = COALESCE(?, email),
       birthday = COALESCE(?, birthday),
-      points = COALESCE(?, points),
       level = COALESCE(?, level)
     WHERE id = ?
-  `).run(name, phone, email, birthday, points, level, req.params.id);
+  `).run(name, phone, email, birthday, level, req.params.id);
 
   const changes: string[] = [];
   if (name && name !== (member as any).name) changes.push(`姓名: ${(member as any).name} → ${name}`);
   if (phone && phone !== (member as any).phone) changes.push(`手机号: ${(member as any).phone} → ${phone}`);
   if (email !== undefined && email !== (member as any).email) changes.push(`邮箱: ${(member as any).email || '-'} → ${email || '-'}`);
   if (birthday !== undefined && birthday !== (member as any).birthday) changes.push(`生日: ${(member as any).birthday || '-'} → ${birthday || '-'}`);
-  if (points !== undefined && points !== (member as any).points) changes.push(`积分: ${(member as any).points} → ${points}`);
   if (level && level !== (member as any).level) changes.push(`等级: ${(member as any).level} → ${level}`);
 
   logOperation({
