@@ -2,7 +2,7 @@ import express from 'express';
 import getDb from '../db';
 import dayjs from 'dayjs';
 import { requireHq } from '../middleware/auth';
-import { markExpiredCoupons } from '../utils/couponExpiration';
+import { markExpiredCoupons, isCouponTemplateExpired } from '../utils/couponExpiration';
 import { logOperation } from '../utils/operationLog';
 
 const router = express.Router();
@@ -18,6 +18,10 @@ router.get('/birthdays', (req, res) => {
     return res.json({ code: 1, message: '生日专属优惠券不存在，请联系管理员' });
   }
   const bc = birthdayCoupon as any;
+  
+  if (isCouponTemplateExpired(bc.end_date)) {
+    return res.json({ code: 1, message: '生日专属优惠券已过期，请联系管理员' });
+  }
 
   let whereClause = `WHERE strftime('%m', m.birthday) = ?`;
   const params: any[] = [String(currentMonth).padStart(2, '0')];
@@ -205,21 +209,53 @@ router.post('/', requireHq, (req, res) => {
     return res.json({ code: 1, message: '该手机号已注册' });
   }
   
-  const info = db.prepare(`
-    INSERT INTO members (name, phone, email, birthday, points, level)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(name, phone, email, birthday, points, level);
-
-  logOperation({
-    operatorId: req.user!.id,
-    operatorName: req.user!.username,
-    operationType: 'member_create',
-    targetType: 'member',
-    targetId: Number(info.lastInsertRowid),
-    detail: `创建会员：${name}，手机号：${phone}`,
+  const newUserCoupon = db.prepare('SELECT * FROM coupons WHERE is_new_user = 1').get() as any;
+  let newUserCouponIssued = false;
+  
+  const transaction = db.transaction(() => {
+    const info = db.prepare(`
+      INSERT INTO members (name, phone, email, birthday, points, level)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(name, phone, email, birthday, points, level);
+    
+    const memberId = Number(info.lastInsertRowid);
+    
+    if (newUserCoupon && !isCouponTemplateExpired(newUserCoupon.end_date)) {
+      const remaining = newUserCoupon.total_quantity - newUserCoupon.issued_quantity;
+      if (remaining > 0) {
+        db.prepare(`
+          INSERT INTO member_coupons (member_id, coupon_id) VALUES (?, ?)
+        `).run(memberId, newUserCoupon.id);
+        
+        db.prepare(`
+          UPDATE coupons SET issued_quantity = issued_quantity + 1 WHERE id = ?
+        `).run(newUserCoupon.id);
+        
+        newUserCouponIssued = true;
+      }
+    }
+    
+    logOperation({
+      operatorId: req.user!.id,
+      operatorName: req.user!.username,
+      operationType: 'member_create',
+      targetType: 'member',
+      targetId: memberId,
+      detail: `创建会员：${name}，手机号：${phone}${newUserCouponIssued ? `，自动发放新人券：${newUserCoupon.name}` : ''}`,
+    });
+    
+    return { id: memberId };
   });
-
-  res.json({ code: 0, data: { id: info.lastInsertRowid } });
+  
+  try {
+    const result = transaction();
+    const message = newUserCouponIssued 
+      ? `注册成功，已自动发放新人券：${newUserCoupon.name}` 
+      : '注册成功';
+    res.json({ code: 0, data: result, message });
+  } catch (err: any) {
+    res.json({ code: 1, message: err.message });
+  }
 });
 
 router.put('/:id', requireHq, (req, res) => {

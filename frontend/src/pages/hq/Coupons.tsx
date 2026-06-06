@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Input, Space, Modal, Form, Select, DatePicker, message, Popconfirm, Tag, Progress, Row, Col } from 'antd';
+import { Table, Button, Input, Space, Modal, Form, Select, DatePicker, message, Popconfirm, Tag, Progress, Row, Col, Radio } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, GiftOutlined, UserOutlined, TeamOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -62,9 +62,14 @@ const HqCoupons = () => {
 
   const handleEdit = (coupon: CouponTemplate) => {
     setEditingCoupon(coupon);
+    const c = coupon as any;
+    let specialType = 0;
+    if (c.is_new_user) specialType = 1;
+    if (c.is_birthday) specialType = 2;
     form.setFieldsValue({
       ...coupon,
       dateRange: [dayjs(coupon.start_date), dayjs(coupon.end_date)],
+      coupon_special_type: specialType,
     });
     setModalVisible(true);
   };
@@ -107,6 +112,8 @@ const HqCoupons = () => {
         start_date: startDate.format('YYYY-MM-DD'),
         end_date: endDate.format('YYYY-MM-DD'),
         description: values.description,
+        is_new_user: values.coupon_special_type === 1 ? 1 : 0,
+        is_birthday: values.coupon_special_type === 2 ? 1 : 0,
       };
 
       if (editingCoupon) {
@@ -129,7 +136,7 @@ const HqCoupons = () => {
 
   const openIssueModal = (coupon: CouponTemplate) => {
     setCurrentCoupon(coupon);
-    setIssueType('single');
+    setIssueType((coupon as any).is_new_user ? 'single' : 'single');
     setSelectedMembers([]);
     setIssueModalVisible(true);
   };
@@ -182,7 +189,7 @@ const HqCoupons = () => {
     {
       title: '优惠券名称',
       dataIndex: 'name',
-      width: 180,
+      width: 220,
       render: (name: string, record: CouponTemplate) => (
         <div className="flex items-center gap-2">
           <span className={isTemplateExpired(record.end_date) ? 'text-gray-400 line-through' : ''}>
@@ -190,6 +197,12 @@ const HqCoupons = () => {
           </span>
           {isTemplateExpired(record.end_date) && (
             <Tag color="red" className="m-0">已过期</Tag>
+          )}
+          {(record as any).is_birthday && (
+            <Tag color="purple" className="m-0">生日专属</Tag>
+          )}
+          {(record as any).is_new_user && (
+            <Tag color="orange" className="m-0">新人专享</Tag>
           )}
         </div>
       ),
@@ -252,36 +265,47 @@ const HqCoupons = () => {
       title: '操作',
       width: 220,
       fixed: 'right' as const,
-      render: (_: any, record: CouponTemplate) => (
-        <Space size="small">
-          <Button
-            type="link"
-            size="small"
-            icon={<GiftOutlined />}
-            onClick={() => openIssueModal(record)}
-          >
-            发放
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确定删除该优惠券？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              删除
+      render: (_: any, record: CouponTemplate) => {
+        const expired = isTemplateExpired(record.end_date);
+        return (
+          <Space size="small">
+            <Button
+              type="link"
+              size="small"
+              icon={<GiftOutlined />}
+              onClick={() => openIssueModal(record)}
+              disabled={expired}
+            >
+              发放
             </Button>
-          </Popconfirm>
-        </Space>
-      ),
+            <Button
+              type="link"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            >
+              编辑
+            </Button>
+            <Popconfirm
+              title="确定删除该优惠券？"
+              onConfirm={() => handleDelete(record.id)}
+              okText="确定"
+              cancelText="取消"
+              disabled={expired && record.issued_quantity > 0}
+            >
+              <Button 
+                type="link" 
+                size="small" 
+                danger 
+                icon={<DeleteOutlined />}
+                disabled={expired && record.issued_quantity > 0}
+              >
+                删除
+              </Button>
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -405,6 +429,17 @@ const HqCoupons = () => {
           <Form.Item name="description" label="使用说明">
             <Input.TextArea rows={3} placeholder="请输入使用说明" />
           </Form.Item>
+          <Form.Item
+            name="coupon_special_type"
+            label="特殊类型"
+            initialValue={0}
+          >
+            <Radio.Group>
+              <Radio value={0}>普通优惠券</Radio>
+              <Radio value={1}>新人专享</Radio>
+              <Radio value={2}>生日专属</Radio>
+            </Radio.Group>
+          </Form.Item>
         </Form>
       </Modal>
 
@@ -445,6 +480,7 @@ const HqCoupons = () => {
                   type={issueType === 'batch' ? 'primary' : 'default'}
                   icon={<TeamOutlined />}
                   onClick={() => setIssueType('batch')}
+                  disabled={(currentCoupon as any)?.is_new_user}
                 >
                   批量发放
                 </Button>
@@ -452,10 +488,16 @@ const HqCoupons = () => {
                   type={issueType === 'all' ? 'primary' : 'default'}
                   icon={<TeamOutlined />}
                   onClick={() => setIssueType('all')}
+                  disabled={(currentCoupon as any)?.is_new_user}
                 >
                   全员发放
                 </Button>
               </div>
+              {(currentCoupon as any)?.is_new_user && (
+                <div className="p-3 bg-orange-50 rounded-lg text-orange-600 text-sm">
+                  新人专享优惠券每位会员只能领取一次，仅支持单个发放
+                </div>
+              )}
 
               {issueType === 'single' && (
                 <Select

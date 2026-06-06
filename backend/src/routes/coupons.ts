@@ -2,7 +2,7 @@ import express from 'express';
 import getDb from '../db';
 import dayjs from 'dayjs';
 import { requireHq } from '../middleware/auth';
-import { markExpiredCoupons } from '../utils/couponExpiration';
+import { markExpiredCoupons, isCouponTemplateExpired } from '../utils/couponExpiration';
 import { logOperation } from '../utils/operationLog';
 
 const router = express.Router();
@@ -48,7 +48,7 @@ router.get('/:id', (req, res) => {
 
 router.post('/', requireHq, (req, res) => {
   const db = getDb();
-  const { name, type, value, min_amount = 0, total_quantity, start_date, end_date, description } = req.body;
+  const { name, type, value, min_amount = 0, total_quantity, start_date, end_date, description, is_birthday = 0, is_new_user = 0 } = req.body;
   
   if (!name || !type || !value || !total_quantity || !start_date || !end_date) {
     return res.json({ code: 1, message: '请填写完整信息' });
@@ -64,10 +64,28 @@ router.post('/', requireHq, (req, res) => {
     return res.json({ code: 1, message: '优惠金额必须大于0' });
   }
   
+  if (is_birthday && is_new_user) {
+    return res.json({ code: 1, message: '不能同时设置为生日专属和新人专享' });
+  }
+  
+  if (is_birthday) {
+    const existing = db.prepare('SELECT * FROM coupons WHERE is_birthday = 1').get();
+    if (existing) {
+      return res.json({ code: 1, message: '已存在生日专属优惠券' });
+    }
+  }
+  
+  if (is_new_user) {
+    const existing = db.prepare('SELECT * FROM coupons WHERE is_new_user = 1').get();
+    if (existing) {
+      return res.json({ code: 1, message: '已存在新人专享优惠券' });
+    }
+  }
+  
   const info = db.prepare(`
-    INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(name, type, value, min_amount, total_quantity, start_date, end_date, description);
+    INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday, is_new_user)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday ? 1 : 0, is_new_user ? 1 : 0);
 
   logOperation({
     operatorId: req.user!.id,
@@ -83,7 +101,7 @@ router.post('/', requireHq, (req, res) => {
 
 router.put('/:id', requireHq, (req, res) => {
   const db = getDb();
-  const { name, type, value, min_amount, total_quantity, start_date, end_date, description } = req.body;
+  const { name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday, is_new_user } = req.body;
   
   const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id) as any;
   if (!coupon) {
@@ -93,6 +111,8 @@ router.put('/:id', requireHq, (req, res) => {
   const finalType = type || coupon.type;
   const finalValue = value !== undefined ? value : coupon.value;
   const finalMinAmount = min_amount !== undefined ? min_amount : coupon.min_amount;
+  const finalIsBirthday = is_birthday !== undefined ? (is_birthday ? 1 : 0) : coupon.is_birthday;
+  const finalIsNewUser = is_new_user !== undefined ? (is_new_user ? 1 : 0) : coupon.is_new_user;
   
   if (finalType === '满减' && finalValue > finalMinAmount) {
     return res.json({ code: 1, message: '满减金额不能大于最低消费金额' });
@@ -104,6 +124,24 @@ router.put('/:id', requireHq, (req, res) => {
     return res.json({ code: 1, message: '优惠金额必须大于0' });
   }
   
+  if (finalIsBirthday && finalIsNewUser) {
+    return res.json({ code: 1, message: '不能同时设置为生日专属和新人专享' });
+  }
+  
+  if (finalIsBirthday) {
+    const existing = db.prepare('SELECT * FROM coupons WHERE is_birthday = 1 AND id != ?').get(req.params.id);
+    if (existing) {
+      return res.json({ code: 1, message: '已存在生日专属优惠券' });
+    }
+  }
+  
+  if (finalIsNewUser) {
+    const existing = db.prepare('SELECT * FROM coupons WHERE is_new_user = 1 AND id != ?').get(req.params.id);
+    if (existing) {
+      return res.json({ code: 1, message: '已存在新人专享优惠券' });
+    }
+  }
+  
   db.prepare(`
     UPDATE coupons SET
       name = COALESCE(?, name),
@@ -113,9 +151,11 @@ router.put('/:id', requireHq, (req, res) => {
       total_quantity = COALESCE(?, total_quantity),
       start_date = COALESCE(?, start_date),
       end_date = COALESCE(?, end_date),
-      description = COALESCE(?, description)
+      description = COALESCE(?, description),
+      is_birthday = COALESCE(?, is_birthday),
+      is_new_user = COALESCE(?, is_new_user)
     WHERE id = ?
-  `).run(name, type, value, min_amount, total_quantity, start_date, end_date, description, req.params.id);
+  `).run(name, type, value, min_amount, total_quantity, start_date, end_date, description, finalIsBirthday, finalIsNewUser, req.params.id);
 
   const changes: string[] = [];
   if (name && name !== coupon.name) changes.push(`名称: ${coupon.name} → ${name}`);
@@ -174,6 +214,11 @@ router.post('/:id/issue', requireHq, (req, res) => {
   }
   
   const couponData = coupon as any;
+  
+  if (isCouponTemplateExpired(couponData.end_date)) {
+    return res.json({ code: 1, message: '优惠券已过期，无法发放' });
+  }
+  
   const remaining = couponData.total_quantity - couponData.issued_quantity;
   
   const targetMemberIds = member_ids || (member_id ? [member_id] : []);
@@ -184,6 +229,38 @@ router.post('/:id/issue', requireHq, (req, res) => {
   
   if (targetMemberIds.length > remaining) {
     return res.json({ code: 1, message: `库存不足，剩余 ${remaining} 张` });
+  }
+  
+  if (couponData.is_new_user) {
+    const invalidMembers: number[] = [];
+    for (const mid of targetMemberIds) {
+      const exists = db.prepare(`
+        SELECT COUNT(*) as count FROM member_coupons 
+        WHERE member_id = ? AND coupon_id = ?
+      `).get(mid, couponData.id) as { count: number };
+      if (exists.count > 0) {
+        invalidMembers.push(mid);
+      }
+    }
+    if (invalidMembers.length > 0) {
+      return res.json({ 
+        code: 1, 
+        message: `新人专项优惠券每位会员只能领取一次，会员ID ${invalidMembers.join(', ')} 已领取过` 
+      });
+    }
+  } else {
+    for (const mid of targetMemberIds) {
+      const exists = db.prepare(`
+        SELECT COUNT(*) as count FROM member_coupons 
+        WHERE member_id = ? AND coupon_id = ? AND status = '未使用'
+      `).get(mid, couponData.id) as { count: number };
+      if (exists.count > 0) {
+        return res.json({ 
+          code: 1, 
+          message: `会员ID ${mid} 已有一张未使用的该优惠券，请先使用后再发放` 
+        });
+      }
+    }
   }
   
   const insertMemberCoupon = db.prepare(`
@@ -233,11 +310,36 @@ router.post('/issue-all', requireHq, (req, res) => {
   }
   
   const couponData = coupon as any;
+  
+  if (isCouponTemplateExpired(couponData.end_date)) {
+    return res.json({ code: 1, message: '优惠券已过期，无法发放' });
+  }
+  
+  if (couponData.is_new_user) {
+    return res.json({ code: 1, message: '新人专项优惠券不支持全员发放' });
+  }
+  
   const members = db.prepare('SELECT id FROM members').all() as { id: number }[];
   const remaining = couponData.total_quantity - couponData.issued_quantity;
   
   if (members.length > remaining) {
     return res.json({ code: 1, message: `库存不足，需要 ${members.length} 张，剩余 ${remaining} 张` });
+  }
+  
+  const eligibleMembers = members.filter(m => {
+    const exists = db.prepare(`
+      SELECT COUNT(*) as count FROM member_coupons 
+      WHERE member_id = ? AND coupon_id = ? AND status = '未使用'
+    `).get(m.id, couponData.id) as { count: number };
+    return exists.count === 0;
+  });
+  
+  if (eligibleMembers.length === 0) {
+    return res.json({ code: 1, message: '所有会员都已有未使用的该优惠券' });
+  }
+  
+  if (eligibleMembers.length > remaining) {
+    return res.json({ code: 1, message: `库存不足，需要 ${eligibleMembers.length} 张，剩余 ${remaining} 张` });
   }
   
   const insertMemberCoupon = db.prepare(`
@@ -256,7 +358,7 @@ router.post('/issue-all', requireHq, (req, res) => {
   });
   
   try {
-    transaction(members, Number(coupon_id));
+    transaction(eligibleMembers, Number(coupon_id));
 
     logOperation({
       operatorId: req.user!.id,
@@ -264,10 +366,10 @@ router.post('/issue-all', requireHq, (req, res) => {
       operationType: 'coupon_issue_all',
       targetType: 'coupon',
       targetId: Number(coupon_id),
-      detail: `批量发放优惠券：${couponData.name}，共 ${members.length} 张`,
+      detail: `批量发放优惠券：${couponData.name}，共 ${eligibleMembers.length} 张`,
     });
 
-    res.json({ code: 0, message: `成功向 ${members.length} 位会员发放优惠券` });
+    res.json({ code: 0, message: `成功向 ${eligibleMembers.length} 位会员发放优惠券` });
   } catch (err: any) {
     res.json({ code: 1, message: err.message });
   }
@@ -342,6 +444,11 @@ router.post('/:id/redeem', (req, res) => {
       min_amount: mc.min_amount
     }
   });
+});
+
+router.post('/expire', requireHq, (req, res) => {
+  const count = markExpiredCoupons();
+  res.json({ code: 0, data: { count } });
 });
 
 export default router;

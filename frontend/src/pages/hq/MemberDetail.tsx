@@ -61,10 +61,15 @@ const HqMemberDetail = () => {
     }
   };
 
+  const isTemplateExpired = (endDate: string) => {
+    return dayjs().isAfter(dayjs(endDate).endOf('day'));
+  };
+
   const fetchAvailableCoupons = async () => {
     try {
       const res = await couponApi.getList({ pageSize: 100 });
-      setAvailableCoupons(res.list);
+      const filtered = res.list.filter((c: any) => !isTemplateExpired(c.end_date));
+      setAvailableCoupons(filtered);
     } catch (e) {
       console.error(e);
     }
@@ -401,30 +406,50 @@ const HqMemberDetail = () => {
       >
         <List
           dataSource={availableCoupons}
-          renderItem={(item) => (
-            <List.Item
-              onClick={() => setSelectedCoupon(item.id)}
-              className={`cursor-pointer rounded-lg mb-2 border-2 ${
-                selectedCoupon === item.id ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-gray-200'
-              }`}
-            >
-              <div className="w-full">
-                <div className="flex justify-between">
-                  <div className="font-semibold">{item.name}</div>
+          renderItem={(item) => {
+            const hasCoupon = coupons.some(c => c.coupon_id === item.id);
+            const hasUnused = coupons.some(c => c.coupon_id === item.id && c.status === '未使用');
+            const isNewUser = (item as any).is_new_user;
+            const disabled = isNewUser && hasCoupon;
+            
+            return (
+              <List.Item
+                onClick={() => !disabled && setSelectedCoupon(item.id)}
+                className={`rounded-lg mb-2 border-2 ${
+                  disabled ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' :
+                  selectedCoupon === item.id ? 'border-blue-500 bg-blue-50 cursor-pointer' : 
+                  'border-transparent hover:border-gray-200 cursor-pointer'
+                }`}
+              >
+                <div className="w-full">
+                  <div className="flex justify-between items-start">
+                    <div className="font-semibold flex items-center gap-2">
+                      {item.name}
+                      {isNewUser && (
+                        <Tag color="orange" className="m-0">新人专享</Tag>
+                      )}
+                      {disabled && (
+                        <Tag color="default" className="m-0">已领取</Tag>
+                      )}
+                      {!disabled && hasUnused && (
+                        <Tag color="blue" className="m-0">未使用</Tag>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      剩余：{item.total_quantity - item.issued_quantity} 张
+                    </div>
+                  </div>
                   <div className="text-sm text-gray-500">
-                    剩余：{item.total_quantity - item.issued_quantity} 张
+                    {item.type === '满减' ? `满${item.min_amount}减${item.value}` :
+                     item.type === '折扣' ? `${item.value * 10}折` :
+                     `立减${item.value}元`}
+                    {' | '}
+                    有效期：{dayjs(item.start_date).format('YYYY-MM-DD')} ~ {dayjs(item.end_date).format('YYYY-MM-DD')}
                   </div>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {item.type === '满减' ? `满${item.min_amount}减${item.value}` :
-                   item.type === '折扣' ? `${item.value * 10}折` :
-                   `立减${item.value}元`}
-                  {' | '}
-                  有效期：{dayjs(item.start_date).format('YYYY-MM-DD')} ~ {dayjs(item.end_date).format('YYYY-MM-DD')}
-                </div>
-              </div>
-            </List.Item>
-          )}
+              </List.Item>
+            );
+          }}
         />
       </Modal>
 

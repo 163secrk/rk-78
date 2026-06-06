@@ -56,6 +56,7 @@ export function initDatabase() {
       end_date TEXT NOT NULL,
       description TEXT,
       is_birthday INTEGER DEFAULT 0,
+      is_new_user INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -124,6 +125,12 @@ export function initDatabase() {
     // 字段可能已存在，忽略错误
   }
 
+  try {
+    db.prepare('ALTER TABLE coupons ADD COLUMN is_new_user INTEGER DEFAULT 0').run();
+  } catch (e) {
+    // 字段可能已存在，忽略错误
+  }
+
   const storeCount = db.prepare('SELECT COUNT(*) as count FROM stores').get() as { count: number };
   if (storeCount.count === 0) {
     const insertStore = db.prepare('INSERT INTO stores (name, address) VALUES (?, ?)');
@@ -157,16 +164,26 @@ export function initDatabase() {
 
   const couponCount = db.prepare('SELECT COUNT(*) as count FROM coupons').get() as { count: number };
   if (couponCount.count === 0) {
-    const insertCoupon = db.prepare('INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    insertCoupon.run('满100减20', '满减', 20, 100, 500, '2026-01-01', '2026-12-31', '全场满100元减20元', 0);
-    insertCoupon.run('8折优惠券', '折扣', 0.8, 0, 300, '2026-01-01', '2026-06-30', '全场8折', 0);
-    insertCoupon.run('新人专享10元', '立减', 10, 0, 1000, '2026-01-01', '2026-12-31', '新会员注册专享', 0);
-    insertCoupon.run('生日专属优惠券', '立减', 50, 0, 99999, '2026-01-01', '2026-12-31', '生日当月专属，全场立减50元', 1);
+    const insertCoupon = db.prepare('INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday, is_new_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    insertCoupon.run('满100减20', '满减', 20, 100, 500, '2026-01-01', '2026-12-31', '全场满100元减20元', 0, 0);
+    insertCoupon.run('8折优惠券', '折扣', 0.8, 0, 300, '2026-01-01', '2026-06-30', '全场8折', 0, 0);
+    insertCoupon.run('新人专享10元', '立减', 10, 0, 1000, '2026-01-01', '2026-12-31', '新会员注册专享', 0, 1);
+    insertCoupon.run('生日专属优惠券', '立减', 50, 0, 99999, '2026-01-01', '2026-12-31', '生日当月专属，全场立减50元', 1, 0);
   } else {
     const birthdayCoupon = db.prepare('SELECT * FROM coupons WHERE is_birthday = 1').get();
     if (!birthdayCoupon) {
-      const insertCoupon = db.prepare('INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-      insertCoupon.run('生日专属优惠券', '立减', 50, 0, 99999, '2026-01-01', '2026-12-31', '生日当月专属，全场立减50元', 1);
+      const insertCoupon = db.prepare('INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday, is_new_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      insertCoupon.run('生日专属优惠券', '立减', 50, 0, 99999, '2026-01-01', '2026-12-31', '生日当月专属，全场立减50元', 1, 0);
+    }
+    const newUserCoupon = db.prepare('SELECT * FROM coupons WHERE is_new_user = 1').get();
+    if (!newUserCoupon) {
+      const existing = db.prepare('SELECT * FROM coupons WHERE name = ?').get('新人专享10元') as any;
+      if (existing) {
+        db.prepare('UPDATE coupons SET is_new_user = 1 WHERE id = ?').run(existing.id);
+      } else {
+        const insertCoupon = db.prepare('INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday, is_new_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        insertCoupon.run('新人专享10元', '立减', 10, 0, 1000, '2026-01-01', '2026-12-31', '新会员注册专享', 0, 1);
+      }
     }
   }
 
