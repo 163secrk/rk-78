@@ -3,6 +3,7 @@ import {
   DashboardOutlined,
   TeamOutlined,
   GiftOutlined,
+  BarChartOutlined,
   LogoutOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -37,6 +38,12 @@ const HqLayout = ({ children }: HqLayoutProps) => {
       icon: <GiftOutlined />,
       label: '优惠券管理',
       onClick: () => navigate('/hq/coupons'),
+    },
+    {
+      key: '/hq/stats',
+      icon: <BarChartOutlined />,
+      label: '门店统计',
+      onClick: () => navigate('/hq/stats'),
     },
   ];
 

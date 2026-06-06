@@ -1,5 +1,5 @@
 import request from '../utils/request';
-import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole } from '../types';
+import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole, StoreMemberCount, StoreConsumption } from '../types';
 
 export const memberApi = {
   getList: (params: { page?: number; pageSize?: number; keyword?: string }) =>
@@ -83,6 +83,12 @@ export const transactionApi = {
 export const storeApi = {
   getList: () =>
     request<Store[]>({ url: '/stores', method: 'get' }),
+
+  getMemberCountStats: () =>
+    request<StoreMemberCount[]>({ url: '/stores/stats/member-count', method: 'get' }),
+
+  getConsumptionStats: () =>
+    request<StoreConsumption[]>({ url: '/stores/stats/consumption', method: 'get' }),
 };
 
 export const authApi = {

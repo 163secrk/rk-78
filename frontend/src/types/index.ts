@@ -85,6 +85,20 @@ export interface UserInfo {
   storeId?: number;
 }
 
+export interface StoreMemberCount {
+  store_id: number;
+  store_name: string;
+  member_count: number;
+}
+
+export interface StoreConsumption {
+  store_id: number;
+  store_name: string;
+  total_amount: number;
+  final_amount: number;
+  transaction_count: number;
+}
+
 export interface LoginResponse {
   token: string;
   user: UserInfo;

@@ -89,7 +89,7 @@ const HqDashboard = () => {
   };
 
   const handleViewReport = () => {
-    message.info('报表功能开发中');
+    navigate('/hq/stats');
   };
 
   const handleMemberSubmit = async () => {
