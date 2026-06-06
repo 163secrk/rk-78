@@ -169,6 +169,10 @@ const HqCoupons = () => {
     return colors[type] || 'default';
   };
 
+  const isTemplateExpired = (endDate: string) => {
+    return dayjs().isAfter(dayjs(endDate).endOf('day'));
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -178,7 +182,17 @@ const HqCoupons = () => {
     {
       title: '优惠券名称',
       dataIndex: 'name',
-      width: 160,
+      width: 180,
+      render: (name: string, record: CouponTemplate) => (
+        <div className="flex items-center gap-2">
+          <span className={isTemplateExpired(record.end_date) ? 'text-gray-400 line-through' : ''}>
+            {name}
+          </span>
+          {isTemplateExpired(record.end_date) && (
+            <Tag color="red" className="m-0">已过期</Tag>
+          )}
+        </div>
+      ),
     },
     {
       title: '类型',
@@ -206,7 +220,7 @@ const HqCoupons = () => {
             <Progress
               percent={percent}
               size="small"
-              strokeColor="#1677ff"
+              strokeColor={isTemplateExpired(record.end_date) ? '#bfbfbf' : '#1677ff'}
               style={{ width: 120 }}
             />
             <span className="text-sm text-gray-500">
@@ -218,13 +232,21 @@ const HqCoupons = () => {
     },
     {
       title: '有效期',
-      width: 200,
-      render: (_: any, record: CouponTemplate) => (
-        <div className="text-sm">
-          <div>{dayjs(record.start_date).format('YYYY-MM-DD')}</div>
-          <div className="text-gray-400">~ {dayjs(record.end_date).format('YYYY-MM-DD')}</div>
-        </div>
-      ),
+      width: 220,
+      render: (_: any, record: CouponTemplate) => {
+        const expired = isTemplateExpired(record.end_date);
+        return (
+          <div className="text-sm">
+            <div className={expired ? 'text-gray-400' : ''}>
+              {dayjs(record.start_date).format('YYYY-MM-DD')}
+            </div>
+            <div className={expired ? 'text-red-500' : 'text-gray-400'}>
+              ~ {dayjs(record.end_date).format('YYYY-MM-DD')}
+              {expired && <span className="ml-1 text-red-500">（已过期）</span>}
+            </div>
+          </div>
+        );
+      },
     },
     {
       title: '操作',
@@ -274,9 +296,25 @@ const HqCoupons = () => {
           style={{ width: 300 }}
           allowClear
         />
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          新增优惠券
-        </Button>
+        <Space>
+          <Button
+            icon={<GiftOutlined />}
+            onClick={async () => {
+              try {
+                const res = await couponApi.expire();
+                message.success(`已标记 ${res.count} 张过期优惠券`);
+                fetchCoupons();
+              } catch (e: any) {
+                message.error(e?.response?.data?.message || '操作失败');
+              }
+            }}
+          >
+            立即检查过期
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+            新增优惠券
+          </Button>
+        </Space>
       </div>
 
       <Table
@@ -284,6 +322,9 @@ const HqCoupons = () => {
         columns={columns}
         dataSource={coupons}
         loading={loading}
+        rowClassName={(record) =>
+          isTemplateExpired(record.end_date) ? 'bg-gray-50 opacity-70' : ''
+        }
         pagination={{
           current: page,
           pageSize,
@@ -296,7 +337,7 @@ const HqCoupons = () => {
             setPageSize(ps);
           },
         }}
-        scroll={{ x: 1000 }}
+        scroll={{ x: 1100 }}
       />
 
       <Modal

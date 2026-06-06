@@ -3,12 +3,14 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import cron from 'node-cron';
 import { initDatabase, getDb } from './db';
 import { authenticateToken, generateToken, requireHq } from './middleware/auth';
 import membersRouter from './routes/members';
 import couponsRouter from './routes/coupons';
 import transactionsRouter from './routes/transactions';
 import storesRouter from './routes/stores';
+import { markExpiredCoupons } from './utils/couponExpiration';
 
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
@@ -83,10 +85,38 @@ app.use('/api/coupons', authenticateToken, couponsRouter);
 app.use('/api/transactions', authenticateToken, transactionsRouter);
 app.use('/api/stores', authenticateToken, storesRouter);
 
+app.post('/api/coupons/expire', authenticateToken, requireHq, (req, res) => {
+  const count = markExpiredCoupons();
+  res.json({ code: 0, message: `已标记 ${count} 张过期优惠券`, data: { count } });
+});
+
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err);
   res.status(500).json({ code: 1, message: '服务器内部错误', error: err.message });
 });
+
+process.nextTick(() => {
+  try {
+    const count = markExpiredCoupons();
+    if (count > 0) {
+      console.log(`服务启动时检测到并标记 ${count} 张过期优惠券`);
+    }
+  } catch (e) {
+    console.error('启动时标记过期优惠券失败:', e);
+  }
+});
+
+cron.schedule('0 0 0 * * *', () => {
+  console.log('执行每日优惠券过期检查任务...');
+  try {
+    const count = markExpiredCoupons();
+    console.log(`每日过期检查完成，共标记 ${count} 张过期优惠券`);
+  } catch (e) {
+    console.error('每日优惠券过期检查失败:', e);
+  }
+}, {
+  timezone: 'Asia/Shanghai'
+} as any);
 
 app.listen(PORT, () => {
   console.log(`🚀 药店会员管理系统后端服务已启动`);

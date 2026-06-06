@@ -54,6 +54,9 @@ export const couponApi = {
 
   redeem: (id: number, data: { member_id: number; store_id: number }) =>
     request({ url: `/coupons/${id}/redeem`, method: 'post', data }),
+
+  expire: () =>
+    request<{ count: number }>({ url: '/coupons/expire', method: 'post' }),
 };
 
 export const transactionApi = {

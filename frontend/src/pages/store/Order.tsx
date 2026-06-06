@@ -75,6 +75,10 @@ const StoreOrder = () => {
     }
   };
 
+  const isCouponExpired = (endDate: string) => {
+    return dayjs().isAfter(dayjs(endDate).endOf('day'));
+  };
+
   const loadMemberCoupons = async (memberId: number) => {
     try {
       const data = await memberApi.getCoupons(memberId);
@@ -141,6 +145,20 @@ const StoreOrder = () => {
     }
     const coupon = coupons.find((c) => c.id === couponId);
     if (coupon) {
+      if (isCouponExpired(coupon.end_date)) {
+        Modal.warning({
+          title: '优惠券已过期',
+          content: (
+            <div>
+              <p>优惠券 <strong>{coupon.name}</strong> 已过期，无法使用。</p>
+              <p className="text-gray-500 text-sm">有效期至：{dayjs(coupon.end_date).format('YYYY-MM-DD')}</p>
+            </div>
+          ),
+          okText: '我知道了',
+        });
+        setSelectedCoupon(null);
+        return;
+      }
       if (coupon.min_amount && subtotal < coupon.min_amount) {
         message.warning(`该优惠券需要满¥${coupon.min_amount}才能使用`);
         setSelectedCoupon(null);
@@ -371,6 +389,21 @@ const StoreOrder = () => {
                   allowClear
                   value={selectedCoupon?.id}
                   onChange={handleCouponChange}
+                  optionRender={(option) => {
+                    const coupon = coupons.find((c) => c.id === option.value);
+                    if (!coupon) return option.label as React.ReactNode;
+                    const expired = isCouponExpired(coupon.end_date);
+                    return (
+                      <div className="flex justify-between items-center w-full">
+                        <span className={expired ? 'text-gray-400 line-through' : ''}>
+                          {option.label as string}
+                        </span>
+                        {expired && (
+                          <Tag color="red" className="ml-2">已过期</Tag>
+                        )}
+                      </div>
+                    );
+                  }}
                   options={coupons.map((c) => ({
                     label: `${c.name} - ${
                       c.type === '满减'

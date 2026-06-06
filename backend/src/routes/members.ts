@@ -2,6 +2,7 @@ import express from 'express';
 import getDb from '../db';
 import dayjs from 'dayjs';
 import { requireHq } from '../middleware/auth';
+import { markExpiredCoupons } from '../utils/couponExpiration';
 
 const router = express.Router();
 
@@ -247,6 +248,9 @@ router.delete('/:id', requireHq, (req, res) => {
 
 router.get('/:id/coupons', (req, res) => {
   const db = getDb();
+  
+  markExpiredCoupons();
+  
   const coupons = db.prepare(`
     SELECT mc.*, c.name, c.type, c.value, c.min_amount, c.start_date, c.end_date, c.description
     FROM member_coupons mc

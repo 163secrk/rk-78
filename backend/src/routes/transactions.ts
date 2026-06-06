@@ -1,6 +1,7 @@
 import express from 'express';
 import getDb from '../db';
 import dayjs from 'dayjs';
+import { markExpiredCoupons } from '../utils/couponExpiration';
 
 const router = express.Router();
 
@@ -114,6 +115,8 @@ router.post('/', (req, res) => {
     return res.json({ code: 1, message: '门店不存在' });
   }
   
+  markExpiredCoupons();
+  
   let discountAmount = 0;
   let finalCouponId = null;
   
@@ -131,13 +134,24 @@ router.post('/', (req, res) => {
     
     const mc = memberCoupon as any;
     
+    if (mc.status === '已过期') {
+      return res.json({ code: 1, message: '优惠券已过期，无法使用' });
+    }
+    
+    if (mc.status === '已使用') {
+      return res.json({ code: 1, message: '优惠券已使用' });
+    }
+    
     if (mc.status !== '未使用') {
       return res.json({ code: 1, message: '优惠券状态不正确' });
     }
     
     const now = dayjs();
-    if (now.isBefore(dayjs(mc.start_date)) || now.isAfter(dayjs(mc.end_date).endOf('day'))) {
-      return res.json({ code: 1, message: '优惠券不在有效期内' });
+    if (now.isBefore(dayjs(mc.start_date))) {
+      return res.json({ code: 1, message: '优惠券尚未生效' });
+    }
+    if (now.isAfter(dayjs(mc.end_date).endOf('day'))) {
+      return res.json({ code: 1, message: '优惠券已过期，无法使用' });
     }
     
     if (amount < mc.min_amount) {
