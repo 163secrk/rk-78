@@ -33,7 +33,7 @@ const Login = () => {
       if (role === 'hq') {
         navigate('/hq');
       } else {
-        navigate('/store/search');
+        navigate('/store');
       }
     } catch (e: any) {
       console.error('登录失败', e);

@@ -99,6 +99,30 @@ export interface StoreConsumption {
   transaction_count: number;
 }
 
+export interface BirthdayMember extends Member {
+  age: number;
+  birthday_day: number;
+  days_until_birthday: number;
+  is_birthday_today: boolean;
+  has_birthday_coupon: boolean;
+}
+
+export interface BirthdayResponse {
+  list: BirthdayMember[];
+  total: number;
+  issued_count: number;
+  coupon_info: {
+    id: number;
+    name: string;
+    value: number;
+    type: string;
+  };
+}
+
+export interface CouponTemplateWithBirthday extends CouponTemplate {
+  is_birthday: number;
+}
+
 export interface LoginResponse {
   token: string;
   user: UserInfo;

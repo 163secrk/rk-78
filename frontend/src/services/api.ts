@@ -1,5 +1,5 @@
 import request from '../utils/request';
-import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole, StoreMemberCount, StoreConsumption } from '../types';
+import { Member, CouponTemplate, MemberCoupon, Transaction, Store, PageResult, LoginResponse, UserRole, StoreMemberCount, StoreConsumption, BirthdayResponse } from '../types';
 
 export const memberApi = {
   getList: (params: { page?: number; pageSize?: number; keyword?: string }) =>
@@ -25,6 +25,9 @@ export const memberApi = {
 
   getTransactions: (id: number, params: { page?: number; pageSize?: number }) =>
     request<PageResult<Transaction>>({ url: `/members/${id}/transactions`, method: 'get', params }),
+
+  getBirthdayMembers: () =>
+    request<BirthdayResponse>({ url: '/members/birthdays', method: 'get' }),
 };
 
 export const couponApi = {

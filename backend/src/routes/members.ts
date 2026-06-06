@@ -1,8 +1,116 @@
 import express from 'express';
 import getDb from '../db';
+import dayjs from 'dayjs';
 import { requireHq } from '../middleware/auth';
 
 const router = express.Router();
+
+router.get('/birthdays', (req, res) => {
+  const db = getDb();
+  const now = dayjs();
+  const currentMonth = now.month() + 1;
+  const currentYear = now.year();
+
+  const birthdayCoupon = db.prepare('SELECT * FROM coupons WHERE is_birthday = 1').get();
+  if (!birthdayCoupon) {
+    return res.json({ code: 1, message: '生日专属优惠券不存在，请联系管理员' });
+  }
+  const bc = birthdayCoupon as any;
+
+  let whereClause = `WHERE strftime('%m', m.birthday) = ?`;
+  const params: any[] = [String(currentMonth).padStart(2, '0')];
+
+  if (req.user!.role === 'store') {
+    whereClause += ` AND m.id IN (
+      SELECT DISTINCT member_id FROM transactions 
+      WHERE store_id = ?
+    )`;
+    params.push(req.user!.storeId);
+  }
+
+  let sql = `
+    SELECT m.*,
+      (SELECT COUNT(*) FROM member_coupons mc 
+       WHERE mc.member_id = m.id 
+       AND mc.coupon_id = ? 
+       AND strftime('%Y', mc.obtained_at) = ?) as has_birthday_coupon
+    FROM members m
+    ${whereClause}
+    AND m.birthday IS NOT NULL AND m.birthday != ''
+    ORDER BY strftime('%d', m.birthday) ASC
+  `;
+  params.unshift(bc.id, String(currentYear));
+
+  const members = db.prepare(sql).all(...params) as any[];
+
+  const result = members.map(member => {
+    const birthday = dayjs(member.birthday);
+    const age = currentYear - birthday.year();
+    const birthdayDay = birthday.date();
+    const daysUntilBirthday = birthday.month(currentMonth - 1).year(currentYear).diff(now, 'day');
+    const isBirthdayToday = daysUntilBirthday === 0;
+
+    return {
+      ...member,
+      age,
+      birthday_day: birthdayDay,
+      days_until_birthday: daysUntilBirthday >= 0 ? daysUntilBirthday : 0,
+      is_birthday_today: isBirthdayToday,
+      has_birthday_coupon: member.has_birthday_coupon > 0
+    };
+  });
+
+  const membersToIssue = result.filter(m => !m.has_birthday_coupon);
+  let issuedCount = 0;
+
+  if (membersToIssue.length > 0) {
+    const remaining = bc.total_quantity - bc.issued_quantity;
+    if (remaining >= membersToIssue.length) {
+      const insertMemberCoupon = db.prepare(`
+        INSERT INTO member_coupons (member_id, coupon_id, store_id) VALUES (?, ?, ?)
+      `);
+      const updateCoupon = db.prepare(`
+        UPDATE coupons SET issued_quantity = issued_quantity + ? WHERE id = ?
+      `);
+
+      const storeId = req.user!.role === 'store' ? req.user!.storeId : null;
+
+      const transaction = db.transaction((memberIds: number[]) => {
+        for (const mid of memberIds) {
+          insertMemberCoupon.run(mid, bc.id, storeId);
+        }
+        updateCoupon.run(memberIds.length, bc.id);
+      });
+
+      try {
+        transaction(membersToIssue.map(m => m.id));
+        issuedCount = membersToIssue.length;
+        result.forEach(m => {
+          if (!m.has_birthday_coupon) {
+            m.has_birthday_coupon = true;
+          }
+        });
+      } catch (err: any) {
+        console.error('自动发放生日优惠券失败:', err);
+      }
+    }
+  }
+
+  res.json({
+    code: 0,
+    data: {
+      list: result,
+      total: result.length,
+      issued_count: issuedCount,
+      coupon_info: {
+        id: bc.id,
+        name: bc.name,
+        value: bc.value,
+        type: bc.type
+      }
+    }
+  });
+});
 
 router.get('/stats/level-distribution', (req, res) => {
   const db = getDb();

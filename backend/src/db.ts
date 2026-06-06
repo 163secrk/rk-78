@@ -55,6 +55,7 @@ export function initDatabase() {
       start_date TEXT NOT NULL,
       end_date TEXT NOT NULL,
       description TEXT,
+      is_birthday INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -87,6 +88,12 @@ export function initDatabase() {
     );
   `);
 
+  try {
+    db.prepare('ALTER TABLE coupons ADD COLUMN is_birthday INTEGER DEFAULT 0').run();
+  } catch (e) {
+    // 字段可能已存在，忽略错误
+  }
+
   const storeCount = db.prepare('SELECT COUNT(*) as count FROM stores').get() as { count: number };
   if (storeCount.count === 0) {
     const insertStore = db.prepare('INSERT INTO stores (name, address) VALUES (?, ?)');
@@ -101,14 +108,36 @@ export function initDatabase() {
     insertMember.run('张三', '13800138001', 'zhangsan@example.com', '1990-01-15', 1500, '金卡会员');
     insertMember.run('李四', '13800138002', 'lisi@example.com', '1992-03-20', 800, '银卡会员');
     insertMember.run('王五', '13800138003', 'wangwu@example.com', '1988-07-10', 200, '普通会员');
+    insertMember.run('赵六', '13800138004', 'zhaoliu@example.com', '1995-06-06', 3000, '金卡会员');
+    insertMember.run('钱七', '13800138005', 'qianqi@example.com', '1993-06-15', 1200, '银卡会员');
+    insertMember.run('孙八', '13800138006', 'sunba@example.com', '1991-06-28', 500, '普通会员');
+    insertMember.run('周九', '13800138007', 'zhoujiu@example.com', '1989-06-20', 800, '普通会员');
+    insertMember.run('吴十', '13800138008', 'wushi@example.com', '1997-06-01', 2500, '金卡会员');
+  }
+
+  const transactionCount = db.prepare('SELECT COUNT(*) as count FROM transactions').get() as { count: number };
+  if (transactionCount.count === 0) {
+    const insertTransaction = db.prepare('INSERT INTO transactions (member_id, store_id, amount, points_earned, items) VALUES (?, ?, ?, ?, ?)');
+    insertTransaction.run(4, 1, 158.5, 158, JSON.stringify([{ name: '感冒药', price: 58.5 }, { name: '维生素C', price: 100 }]));
+    insertTransaction.run(5, 1, 89.0, 89, JSON.stringify([{ name: '退烧药', price: 89 }]));
+    insertTransaction.run(6, 2, 200.0, 200, JSON.stringify([{ name: '保健品套装', price: 200 }]));
+    insertTransaction.run(7, 2, 150.0, 150, JSON.stringify([{ name: '钙片', price: 150 }]));
+    insertTransaction.run(8, 3, 320.0, 320, JSON.stringify([{ name: '蛋白粉', price: 320 }]));
   }
 
   const couponCount = db.prepare('SELECT COUNT(*) as count FROM coupons').get() as { count: number };
   if (couponCount.count === 0) {
-    const insertCoupon = db.prepare('INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-    insertCoupon.run('满100减20', '满减', 20, 100, 500, '2026-01-01', '2026-12-31', '全场满100元减20元');
-    insertCoupon.run('8折优惠券', '折扣', 0.8, 0, 300, '2026-01-01', '2026-06-30', '全场8折');
-    insertCoupon.run('新人专享10元', '立减', 10, 0, 1000, '2026-01-01', '2026-12-31', '新会员注册专享');
+    const insertCoupon = db.prepare('INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    insertCoupon.run('满100减20', '满减', 20, 100, 500, '2026-01-01', '2026-12-31', '全场满100元减20元', 0);
+    insertCoupon.run('8折优惠券', '折扣', 0.8, 0, 300, '2026-01-01', '2026-06-30', '全场8折', 0);
+    insertCoupon.run('新人专享10元', '立减', 10, 0, 1000, '2026-01-01', '2026-12-31', '新会员注册专享', 0);
+    insertCoupon.run('生日专属优惠券', '立减', 50, 0, 99999, '2026-01-01', '2026-12-31', '生日当月专属，全场立减50元', 1);
+  } else {
+    const birthdayCoupon = db.prepare('SELECT * FROM coupons WHERE is_birthday = 1').get();
+    if (!birthdayCoupon) {
+      const insertCoupon = db.prepare('INSERT INTO coupons (name, type, value, min_amount, total_quantity, start_date, end_date, description, is_birthday) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      insertCoupon.run('生日专属优惠券', '立减', 50, 0, 99999, '2026-01-01', '2026-12-31', '生日当月专属，全场立减50元', 1);
+    }
   }
 
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };

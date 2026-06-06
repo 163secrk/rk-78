@@ -10,6 +10,7 @@ import HqMembers from './pages/hq/Members';
 import HqMemberDetail from './pages/hq/MemberDetail';
 import HqCoupons from './pages/hq/Coupons';
 import HqStoreStats from './pages/hq/StoreStats';
+import StoreDashboard from './pages/store/Dashboard';
 import StoreSearch from './pages/store/Search';
 import StoreMemberDetail from './pages/store/MemberDetail';
 import StoreTransactions from './pages/store/Transactions';
@@ -80,6 +81,14 @@ export default function App() {
             }
           />
 
+          <Route
+            path="/store"
+            element={
+              <StoreRoute>
+                <StoreDashboard />
+              </StoreRoute>
+            }
+          />
           <Route
             path="/store/search"
             element={

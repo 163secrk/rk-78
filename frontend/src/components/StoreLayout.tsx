@@ -1,5 +1,6 @@
 import { Layout, Menu, Avatar, Dropdown } from 'antd';
 import {
+  HomeOutlined,
   SearchOutlined,
   ShoppingCartOutlined,
   HistoryOutlined,
@@ -21,6 +22,12 @@ const StoreLayout = ({ children }: StoreLayoutProps) => {
   const { user, logout } = useAuthStore();
 
   const menuItems = [
+    {
+      key: '/store',
+      icon: <HomeOutlined />,
+      label: '首页',
+      onClick: () => navigate('/store'),
+    },
     {
       key: '/store/search',
       icon: <SearchOutlined />,

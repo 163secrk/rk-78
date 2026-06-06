@@ -3,6 +3,7 @@ import { TeamOutlined, GiftOutlined, DollarOutlined, RiseOutlined } from '@ant-d
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { memberApi, couponApi, transactionApi } from '../../services/api';
+import BirthdayList from '../../components/BirthdayList';
 
 const { Option } = Select;
 
@@ -211,6 +212,12 @@ const HqDashboard = () => {
               </div>
             </div>
           </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={24}>
+          <BirthdayList role="hq" />
         </Col>
       </Row>
 
