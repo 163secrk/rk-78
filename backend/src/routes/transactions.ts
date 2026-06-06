@@ -2,6 +2,7 @@ import express from 'express';
 import getDb from '../db';
 import dayjs from 'dayjs';
 import { markExpiredCoupons } from '../utils/couponExpiration';
+import { insertPointRecord } from './points';
 
 const router = express.Router();
 
@@ -175,7 +176,18 @@ router.post('/', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(member_id, store_id, amount, finalCouponId, discountAmount, pointsEarned, items ? JSON.stringify(items) : null);
     
-    db.prepare('UPDATE members SET points = points + ? WHERE id = ?').run(pointsEarned, member_id);
+    if (pointsEarned > 0) {
+      insertPointRecord(
+        db,
+        member_id,
+        'earn',
+        pointsEarned,
+        'transaction',
+        Number(info.lastInsertRowid),
+        `消费获得积分，订单金额 ¥${amount.toFixed(2)}`,
+        req.user!.id
+      );
+    }
     
     if (finalCouponId) {
       db.prepare(`

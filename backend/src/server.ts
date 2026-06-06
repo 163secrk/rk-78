@@ -10,6 +10,7 @@ import membersRouter from './routes/members';
 import couponsRouter from './routes/coupons';
 import transactionsRouter from './routes/transactions';
 import storesRouter from './routes/stores';
+import pointsRouter from './routes/points';
 import { markExpiredCoupons } from './utils/couponExpiration';
 
 const dataDir = path.join(__dirname, '..', 'data');
@@ -84,6 +85,7 @@ app.use('/api/members', authenticateToken, membersRouter);
 app.use('/api/coupons', authenticateToken, couponsRouter);
 app.use('/api/transactions', authenticateToken, transactionsRouter);
 app.use('/api/stores', authenticateToken, storesRouter);
+app.use('/api/points', authenticateToken, pointsRouter);
 
 app.post('/api/coupons/expire', authenticateToken, requireHq, (req, res) => {
   const count = markExpiredCoupons();

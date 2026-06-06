@@ -3,8 +3,8 @@ import { Card, Descriptions, Table, Tabs, Tag, Button, Space, List, message } fr
 import { ArrowLeftOutlined, ShoppingCartOutlined, GiftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { memberApi } from '../../services/api';
-import { Member, MemberCoupon, Transaction } from '../../types';
+import { memberApi, pointsApi } from '../../services/api';
+import { Member, MemberCoupon, Transaction, PointRecord } from '../../types';
 import { useAuthStore } from '../../store/auth';
 
 const StoreMemberDetail = () => {
@@ -14,6 +14,9 @@ const StoreMemberDetail = () => {
   const [member, setMember] = useState<Member | null>(null);
   const [coupons, setCoupons] = useState<MemberCoupon[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [pointRecords, setPointRecords] = useState<PointRecord[]>([]);
+  const [pointRecordsTotal, setPointRecordsTotal] = useState(0);
+  const [pointPage, setPointPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
   const memberId = Number(id);
@@ -23,8 +26,9 @@ const StoreMemberDetail = () => {
       fetchMemberDetail();
       fetchMemberCoupons();
       fetchMemberTransactions();
+      fetchPointRecords();
     }
-  }, [memberId]);
+  }, [memberId, pointPage]);
 
   const fetchMemberDetail = async () => {
     try {
@@ -48,6 +52,16 @@ const StoreMemberDetail = () => {
     try {
       const res = await memberApi.getTransactions(memberId, { pageSize: 20 });
       setTransactions(res.list);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchPointRecords = async () => {
+    try {
+      const res = await pointsApi.getMemberPointRecords(memberId, { page: pointPage, pageSize: 10 });
+      setPointRecords(res.list);
+      setPointRecordsTotal(res.total);
     } catch (e) {
       console.error(e);
     }
@@ -110,6 +124,84 @@ const StoreMemberDetail = () => {
     };
     return colors[status] || 'default';
   };
+
+  const getTypeText = (type: string) => {
+    const map: Record<string, string> = {
+      earn: '获得',
+      spend: '消耗',
+      adjust: '调整'
+    };
+    return map[type] || type;
+  };
+
+  const getSourceTypeText = (type: string) => {
+    const map: Record<string, string> = {
+      transaction: '消费',
+      exchange: '兑换',
+      manual: '手动'
+    };
+    return map[type] || type;
+  };
+
+  const pointRecordColumns = [
+    {
+      title: '变动时间',
+      dataIndex: 'created_at',
+      width: 160,
+      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      width: 80,
+      render: (type: string) => {
+        const colors: Record<string, string> = {
+          earn: 'green',
+          spend: 'red',
+          adjust: 'blue'
+        };
+        return <Tag color={colors[type]}>{getTypeText(type)}</Tag>;
+      }
+    },
+    {
+      title: '来源',
+      dataIndex: 'source_type',
+      width: 80,
+      render: (type: string) => getSourceTypeText(type),
+    },
+    {
+      title: '变动积分',
+      dataIndex: 'change',
+      width: 100,
+      render: (change: number, record: PointRecord) => (
+        <span className={record.type === 'earn' ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
+          {record.type === 'earn' ? '+' : ''}{change}
+        </span>
+      ),
+    },
+    {
+      title: '变动前余额',
+      dataIndex: 'balance_before',
+      width: 110,
+    },
+    {
+      title: '变动后余额',
+      dataIndex: 'balance_after',
+      width: 110,
+    },
+    {
+      title: '备注',
+      dataIndex: 'remark',
+      width: 180,
+      render: (text: string) => text || '-',
+    },
+    {
+      title: '操作人',
+      dataIndex: 'operator_name',
+      width: 100,
+      render: (text: string) => text || '-',
+    },
+  ];
 
   const availableCoupons = coupons.filter((c) => c.status === '未使用');
 
@@ -203,6 +295,24 @@ const StoreMemberDetail = () => {
                 columns={transactionColumns}
                 dataSource={transactions}
                 pagination={false}
+              />
+            ),
+          },
+          {
+            key: 'points',
+            label: `积分明细 (${pointRecordsTotal})`,
+            children: (
+              <Table
+                rowKey="id"
+                columns={pointRecordColumns}
+                dataSource={pointRecords}
+                pagination={{
+                  current: pointPage,
+                  pageSize: 10,
+                  total: pointRecordsTotal,
+                  onChange: (page) => setPointPage(page),
+                  showSizeChanger: false,
+                }}
               />
             ),
           },

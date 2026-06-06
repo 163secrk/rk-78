@@ -86,6 +86,22 @@ export function initDatabase() {
       FOREIGN KEY (store_id) REFERENCES stores(id),
       FOREIGN KEY (coupon_id) REFERENCES member_coupons(id)
     );
+
+    CREATE TABLE IF NOT EXISTS point_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('earn', 'spend', 'adjust')),
+      change INTEGER NOT NULL,
+      balance_before INTEGER NOT NULL,
+      balance_after INTEGER NOT NULL,
+      source_type TEXT NOT NULL CHECK(source_type IN ('transaction', 'exchange', 'manual')),
+      source_id INTEGER,
+      remark TEXT,
+      operator_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (member_id) REFERENCES members(id),
+      FOREIGN KEY (operator_id) REFERENCES users(id)
+    );
   `);
 
   try {

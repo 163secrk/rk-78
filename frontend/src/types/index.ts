@@ -123,6 +123,21 @@ export interface CouponTemplateWithBirthday extends CouponTemplate {
   is_birthday: number;
 }
 
+export interface PointRecord {
+  id: number;
+  member_id: number;
+  type: 'earn' | 'spend' | 'adjust';
+  change: number;
+  balance_before: number;
+  balance_after: number;
+  source_type: 'transaction' | 'exchange' | 'manual';
+  source_id?: number;
+  remark?: string;
+  operator_id?: number;
+  operator_name?: string;
+  created_at: string;
+}
+
 export interface LoginResponse {
   token: string;
   user: UserInfo;

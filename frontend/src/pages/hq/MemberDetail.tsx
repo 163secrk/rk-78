@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Card, Descriptions, Table, Tabs, Tag, Button, Space, Modal, List, message } from 'antd';
-import { ArrowLeftOutlined, GiftOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Card, Descriptions, Table, Tabs, Tag, Button, Space, Modal, List, message, Form, InputNumber, Input, Radio } from 'antd';
+import { ArrowLeftOutlined, GiftOutlined, DeleteOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { memberApi, couponApi } from '../../services/api';
-import { Member, MemberCoupon, Transaction } from '../../types';
+import { memberApi, couponApi, pointsApi } from '../../services/api';
+import { Member, MemberCoupon, Transaction, PointRecord } from '../../types';
 
 const HqMemberDetail = () => {
   const navigate = useNavigate();
@@ -12,10 +12,15 @@ const HqMemberDetail = () => {
   const [member, setMember] = useState<Member | null>(null);
   const [coupons, setCoupons] = useState<MemberCoupon[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [pointRecords, setPointRecords] = useState<PointRecord[]>([]);
+  const [pointRecordsTotal, setPointRecordsTotal] = useState(0);
+  const [pointPage, setPointPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [couponModalVisible, setCouponModalVisible] = useState(false);
+  const [pointModalVisible, setPointModalVisible] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<number | null>(null);
+  const [pointForm] = Form.useForm();
 
   const memberId = Number(id);
 
@@ -25,8 +30,9 @@ const HqMemberDetail = () => {
       fetchMemberCoupons();
       fetchMemberTransactions();
       fetchAvailableCoupons();
+      fetchPointRecords();
     }
-  }, [memberId]);
+  }, [memberId, pointPage]);
 
   const fetchMemberDetail = async () => {
     try {
@@ -61,6 +67,37 @@ const HqMemberDetail = () => {
       setAvailableCoupons(res.list);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchPointRecords = async () => {
+    try {
+      const res = await pointsApi.getMemberPointRecords(memberId, { page: pointPage, pageSize: 10 });
+      setPointRecords(res.list);
+      setPointRecordsTotal(res.total);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAdjustPoints = async (values: { type: 'add' | 'subtract'; amount: number; remark?: string }) => {
+    try {
+      setLoading(true);
+      const change = values.type === 'add' ? values.amount : -values.amount;
+      await pointsApi.adjustPoints({
+        member_id: memberId,
+        change,
+        remark: values.remark
+      });
+      message.success('积分调整成功');
+      setPointModalVisible(false);
+      pointForm.resetFields();
+      fetchMemberDetail();
+      fetchPointRecords();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -136,6 +173,84 @@ const HqMemberDetail = () => {
     return colors[status] || 'default';
   };
 
+  const getTypeText = (type: string) => {
+    const map: Record<string, string> = {
+      earn: '获得',
+      spend: '消耗',
+      adjust: '调整'
+    };
+    return map[type] || type;
+  };
+
+  const getSourceTypeText = (type: string) => {
+    const map: Record<string, string> = {
+      transaction: '消费',
+      exchange: '兑换',
+      manual: '手动'
+    };
+    return map[type] || type;
+  };
+
+  const pointRecordColumns = [
+    {
+      title: '变动时间',
+      dataIndex: 'created_at',
+      width: 160,
+      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      width: 80,
+      render: (type: string) => {
+        const colors: Record<string, string> = {
+          earn: 'green',
+          spend: 'red',
+          adjust: 'blue'
+        };
+        return <Tag color={colors[type]}>{getTypeText(type)}</Tag>;
+      }
+    },
+    {
+      title: '来源',
+      dataIndex: 'source_type',
+      width: 80,
+      render: (type: string) => getSourceTypeText(type),
+    },
+    {
+      title: '变动积分',
+      dataIndex: 'change',
+      width: 100,
+      render: (change: number, record: PointRecord) => (
+        <span className={record.type === 'earn' ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
+          {record.type === 'earn' ? '+' : ''}{change}
+        </span>
+      ),
+    },
+    {
+      title: '变动前余额',
+      dataIndex: 'balance_before',
+      width: 110,
+    },
+    {
+      title: '变动后余额',
+      dataIndex: 'balance_after',
+      width: 110,
+    },
+    {
+      title: '备注',
+      dataIndex: 'remark',
+      width: 180,
+      render: (text: string) => text || '-',
+    },
+    {
+      title: '操作人',
+      dataIndex: 'operator_name',
+      width: 100,
+      render: (text: string) => text || '-',
+    },
+  ];
+
   if (!member) return null;
 
   return (
@@ -163,7 +278,16 @@ const HqMemberDetail = () => {
             </Tag>
           </Descriptions.Item>
           <Descriptions.Item label="当前积分">
-            <span className="text-orange-500 font-semibold text-lg">{member.points}</span>
+            <Space>
+              <span className="text-orange-500 font-semibold text-lg">{member.points}</span>
+              <Button
+                type="primary"
+                size="small"
+                onClick={() => setPointModalVisible(true)}
+              >
+                调整积分
+              </Button>
+            </Space>
           </Descriptions.Item>
           <Descriptions.Item label="注册时间">
             {dayjs(member.created_at).format('YYYY-MM-DD HH:mm')}
@@ -234,6 +358,35 @@ const HqMemberDetail = () => {
               />
             ),
           },
+          {
+            key: 'points',
+            label: `积分明细 (${pointRecordsTotal})`,
+            children: (
+              <div>
+                <div className="mb-4 flex justify-end">
+                  <Button
+                    type="primary"
+                    icon={member.points >= 0 ? <PlusOutlined /> : <MinusOutlined />}
+                    onClick={() => setPointModalVisible(true)}
+                  >
+                    调整积分
+                  </Button>
+                </div>
+                <Table
+                  rowKey="id"
+                  columns={pointRecordColumns}
+                  dataSource={pointRecords}
+                  pagination={{
+                    current: pointPage,
+                    pageSize: 10,
+                    total: pointRecordsTotal,
+                    onChange: (page) => setPointPage(page),
+                    showSizeChanger: false,
+                  }}
+                />
+              </div>
+            ),
+          },
         ]}
       />
 
@@ -273,6 +426,72 @@ const HqMemberDetail = () => {
             </List.Item>
           )}
         />
+      </Modal>
+
+      <Modal
+        title="调整积分"
+        open={pointModalVisible}
+        onCancel={() => setPointModalVisible(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <Form
+          form={pointForm}
+          layout="vertical"
+          onFinish={handleAdjustPoints}
+          initialValues={{ type: 'add' }}
+        >
+          <Form.Item
+            name="type"
+            label="调整类型"
+            rules={[{ required: true, message: '请选择调整类型' }]}
+          >
+            <Radio.Group>
+              <Radio.Button value="add">
+                <PlusOutlined /> 增加积分
+              </Radio.Button>
+              <Radio.Button value="subtract">
+                <MinusOutlined /> 扣减积分
+              </Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+
+          <Form.Item
+            name="amount"
+            label="调整数量"
+            rules={[
+              { required: true, message: '请输入调整数量' },
+              { type: 'number', min: 1, message: '数量必须大于0' }
+            ]}
+          >
+            <InputNumber
+              min={1}
+              max={999999}
+              placeholder="请输入积分数量"
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="remark"
+            label="备注说明"
+            rules={[{ max: 200, message: '备注不能超过200字' }]}
+          >
+            <Input.TextArea
+              rows={3}
+              placeholder="请输入备注说明（可选）"
+              maxLength={200}
+              showCount
+            />
+          </Form.Item>
+
+          <Form.Item className="mb-0 flex justify-end gap-2">
+            <Button onClick={() => setPointModalVisible(false)}>取消</Button>
+            <Button type="primary" htmlType="submit" loading={loading}>
+              确认调整
+            </Button>
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
